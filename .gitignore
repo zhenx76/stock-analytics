@@ -1,0 +1,7 @@
+db/
+ec2/
+node_modules/
+.idea/
+.tmp/
+*.csv
+

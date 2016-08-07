@@ -4,7 +4,7 @@
 //
 
 // Before deploy to AWS, change local to false
-var local = true;
+var local = false;
 
 var when = require('when');
 var logger = require('./utility').logger;

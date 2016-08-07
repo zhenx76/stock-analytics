@@ -7,8 +7,9 @@ var when = require('when');
 
 var annualFinancialTableName = 'financial-annual';
 var quaterFinancialTableName = 'financial-quarter';
+var epsTableName = 'financial-eps';
 
-function initTable(db, tableName, schema, attributes) {
+function initTable(db, tableName, schema, attributes, readCapacity, writeCapacity) {
     return when.promise(function(resolve, reject) {
         db.listTables(function (err, data) {
             if (err) {
@@ -29,8 +30,8 @@ function initTable(db, tableName, schema, attributes) {
                     KeySchema: schema,
                     AttributeDefinitions: attributes,
                     ProvisionedThroughput: {
-                        ReadCapacityUnits: 5,
-                        WriteCapacityUnits: 5
+                        ReadCapacityUnits: readCapacity,
+                        WriteCapacityUnits: writeCapacity
                     }
                 };
 
@@ -59,7 +60,7 @@ exports.initFinancialTables = function(db) {
                 {AttributeName: "Symbol", AttributeType: "S"},
                 {AttributeName: "Year", AttributeType: "N"}
             ];
-            return initTable(db, annualFinancialTableName, schema, attributes);
+            return initTable(db, annualFinancialTableName, schema, attributes, 5, 5);
         })
         .then(function() {
             var schema = [
@@ -70,8 +71,45 @@ exports.initFinancialTables = function(db) {
                 {AttributeName: "Symbol", AttributeType: "S"},
                 {AttributeName: "Quarter", AttributeType: "S"}
             ];
-            return initTable(db, quaterFinancialTableName, schema, attributes);
+            return initTable(db, quaterFinancialTableName, schema, attributes, 5, 5);
+        })
+        .then(function() {
+            var schema = [{AttributeName: "Symbol", KeyType: "HASH"}]; // Partition key
+            var attributes = [{AttributeName: "Symbol", AttributeType: "S"}];
+            return initTable(db, epsTableName, schema, attributes, 10, 2);
         });
+};
+
+exports.getFinancialRecords = function(docClient, symbol, isQuarter) {
+    return when.promise(function(resolve, reject) {
+        try {
+            var tableName = isQuarter ? quaterFinancialTableName : annualFinancialTableName;
+            var params = {
+                TableName: tableName,
+                KeyConditionExpression: '#ticker = :tttt',
+                ExpressionAttributeNames: {'#ticker' : 'Symbol'},
+                ExpressionAttributeValues: {':tttt' : symbol}
+            };
+
+            docClient.query(params, function(err, data) {
+                if (err) {
+                    logger.error("Unable to add item. Error JSON:", JSON.stringify(err, null, 2));
+                    reject(symbol);
+                } else {
+                    if (data.hasOwnProperty('Items')) {
+                        resolve(data.Items);
+                    } else {
+                        logger.info("No records found for " + symbol);
+                        resolve(null);
+                    }
+                }
+            });
+
+        } catch (exception) {
+            logger.warn(exception);
+            reject(symbol);
+        }
+    });
 };
 
 exports.addSingleFinancialRecord = function(docClient, record) {
@@ -154,6 +192,7 @@ function isEmpty(obj) {
 
     return true;
 }
+
 exports.addFinancialRecords = function(docClient, records, isQuarter) {
     return when.promise(function(resolve, reject) {
         try {
@@ -196,6 +235,97 @@ exports.addFinancialRecords = function(docClient, records, isQuarter) {
         } catch (exception) {
             logger.warn(exception);
             reject(records);
+        }
+    });
+};
+
+exports.getEPS = function(docClient, symbol) {
+    return when.promise(function(resolve, reject) {
+        try {
+            var params = {
+                TableName: epsTableName,
+                Key:{"Symbol": symbol}
+            };
+
+            docClient.get(params, function(err, data) {
+                if (err) {
+                    logger.error("Unable to get item. Error JSON:", JSON.stringify(err, null, 2));
+                    reject(data);
+                } else {
+                    if (data.hasOwnProperty('Item')) {
+                        resolve(data.Item);
+                    } else {
+                        logger.warn("EPS data for " + symbol + " doesn't exist!");
+                        reject(data);
+                    }
+                }
+            });
+        } catch (exception) {
+            logger.warn(exception);
+            reject(symbol);
+        }
+    });
+};
+
+exports.updateEPS = function(docClient, symbol, epsGrowth) {
+    return when.promise(function(resolve, reject) {
+        try {
+            if (isEmpty(epsGrowth.annual) || isEmpty(epsGrowth.quarterly)) {
+                logger.warn(symbol + ': empty annual or quarterly EPS growth record!');
+                reject(symbol);
+            }
+
+            var expression = 'SET AnnulGrowth = :a, QuarterYearGrowth = :q';
+            var attributes = {
+                ':a': epsGrowth.annual,
+                ':q': epsGrowth.quarterly
+            };
+
+            if (epsGrowth.hasOwnProperty('currentQuarterGrowth')) {
+                expression += ', CurrentQuarterGrowth = :cq';
+                attributes[':cq'] = epsGrowth.currentQuarterGrowth;
+            }
+
+            if (epsGrowth.hasOwnProperty('previousQuarterGrowth')) {
+                expression += ', PreviousQuarterGrowth = :pq';
+                attributes[':pq'] = epsGrowth.previousQuarterGrowth;
+            }
+
+            if (epsGrowth.hasOwnProperty('currentAnnualGrowth')) {
+                expression += ', CurrentAnnualGrowth = :ca';
+                attributes[':ca'] = epsGrowth.currentAnnualGrowth;
+            }
+
+            if (epsGrowth.hasOwnProperty('previousAnnualGrowth')) {
+                expression += ', PreviousAnnualGrowth = :pa';
+                attributes[':pa'] = epsGrowth.previousAnnualGrowth;
+            }
+
+            if (epsGrowth.hasOwnProperty('previousPreviousAnnualGrowthAnnualGrowth')) {
+                expression += ', PreviousPreviousAnnualGrowthAnnualGrowth = :ppa';
+                attributes[':ppa'] = epsGrowth.previousPreviousAnnualGrowthAnnualGrowth;
+            }
+
+            var params = {
+                TableName: epsTableName,
+                Key:{'Symbol': symbol},
+                UpdateExpression: expression,
+                ExpressionAttributeValues: attributes
+            };
+
+            docClient.update(params, function(err, data) {
+                if (err) {
+                    logger.error("updateEPS: Unable to update item. Error JSON:", JSON.stringify(err, null, 2));
+                    reject(data);
+                } else {
+                    logger.info("Updated EPS for " + symbol);
+                    resolve(data);
+                }
+            });
+
+        } catch (exception) {
+            logger.warn(exception);
+            reject(symbol);
         }
     });
 };

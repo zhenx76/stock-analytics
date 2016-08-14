@@ -77,7 +77,11 @@ function parse(symbol, html, isQuarter) {
                 key = 'Revenue';
             }
 
-            if (key == 'Revenue' || key == 'Gross Income') {
+            if (key == "Total Shareholders' Equity") {
+                key = 'Total Equity';
+            }
+
+            if (key == 'Revenue' || key == 'Gross Income' || key == 'Total Equity') {
                 $(this).children('.valueCell').each(function(i, value) {
                     records[i][key] = parseNumber($(value).text());
                 });
@@ -138,13 +142,22 @@ function parse(symbol, html, isQuarter) {
     }
 }
 
-exports.scrape = function(symbol, isQuarter) {
+function scrapeMarketWatch(symbol, type, isQuarter) {
     return when.promise(function(resolve, reject) {
         try {
-            var urlPrefix = "http://www.marketwatch.com/investing/stock";
-            var urlSuffixAnnual = "financials";
-            var urlSuffixQuarter = "financials/income/quarter";
-            var url = [urlPrefix, symbol.toLowerCase(), (isQuarter ? urlSuffixQuarter: urlSuffixAnnual)].join('/');
+            var url, urlPrefix, urlSuffixAnnual, urlSuffixQuarter;
+
+            urlPrefix = "http://www.marketwatch.com/investing/stock";
+
+            if (type == 'income') {
+                urlSuffixAnnual = 'financials';
+                urlSuffixQuarter = 'financials/income/quarter';
+            } else if (type == 'balance-sheet') {
+                urlSuffixAnnual = 'financials/balance-sheet';
+                urlSuffixQuarter = 'financials/balance-sheet/quarter';
+            }
+
+            url = [urlPrefix, symbol.toLowerCase(), (isQuarter ? urlSuffixQuarter: urlSuffixAnnual)].join('/');
 
             request(url, function(error, response, html) {
                 if (error) {
@@ -161,6 +174,40 @@ exports.scrape = function(symbol, isQuarter) {
             reject(symbol);
         }
     }).timeout(120000); //timeout after 2 minutes
+}
+
+exports.scrape = function(symbol, isQuarter) {
+    var financialRecords = [];
+
+    return when.resolve(null)
+        .then(function() {
+            return scrapeMarketWatch(symbol, 'income', isQuarter);
+        })
+        .then(function(records) {
+            financialRecords = records;
+            return scrapeMarketWatch(symbol, 'balance-sheet', isQuarter);
+        })
+        .then(function(records) {
+            // Merge income and balance-sheet records
+            for (var i = 0; i < records.length; i++) {
+                for (var j = 0; j < financialRecords.length; j++) {
+                    if (isQuarter) {
+                        if (records[i].Quarter != financialRecords[j].Quarter) {
+                            continue;
+                        }
+                    } else {
+                        if (records[i].Year != financialRecords[j].Year) {
+                            continue;
+                        }
+                    }
+
+                    financialRecords[j]['Total Equity'] = records[i]['Total Equity'];
+                    break;
+                }
+            }
+
+            return financialRecords;
+        });
 };
 
-//exports.scrape('AVGO', true).then(function(records) {logger.info(JSON.stringify(records))});
+//exports.scrape('AMZN', false).then(function(records) {logger.info(JSON.stringify(records, null, 2))});

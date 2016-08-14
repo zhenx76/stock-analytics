@@ -51,14 +51,14 @@ when.resolve(null)
                             }
 
                             var startIndex = 0;
-                            if (stockInfo.hasOwnProperty('LastUpdatedYear')) {
-                                for (startIndex = 0; startIndex < financialRecords.length; startIndex++) {
-                                    if (financialRecords[startIndex].Year == stockInfo.LastUpdatedYear) {
-                                        startIndex++;
-                                        break;
-                                    }
-                                }
-                            }
+                            //if (stockInfo.hasOwnProperty('LastUpdatedYear')) {
+                            //    for (startIndex = 0; startIndex < financialRecords.length; startIndex++) {
+                            //        if (financialRecords[startIndex].Year == stockInfo.LastUpdatedYear) {
+                            //            startIndex++;
+                            //            break;
+                            //        }
+                            //    }
+                            //}
 
                             stockInfo.LastUpdatedYear = financialRecords[financialRecords.length-1].Year;
 
@@ -79,14 +79,14 @@ when.resolve(null)
                             }
 
                             var startIndex = 0;
-                            if (stockInfo.hasOwnProperty('LastUpdatedQuarter')) {
-                                for (startIndex = financialRecords.length - 1; startIndex >= 0; startIndex--) {
-                                    if (financialRecords[startIndex].Quarter == stockInfo.LastUpdatedQuarter) {
-                                        startIndex++;
-                                        break;
-                                    }
-                                }
-                            }
+                            //if (stockInfo.hasOwnProperty('LastUpdatedQuarter')) {
+                            //    for (startIndex = financialRecords.length - 1; startIndex >= 0; startIndex--) {
+                            //        if (financialRecords[startIndex].Quarter == stockInfo.LastUpdatedQuarter) {
+                            //            startIndex++;
+                            //            break;
+                            //        }
+                            //    }
+                            //}
 
                             stockInfo.LastUpdatedQuarter = financialRecords[financialRecords.length-1].Quarter;
 

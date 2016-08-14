@@ -75,10 +75,6 @@ function calculateEPSGrowth(annualRecords, quarterlyRecords) {
     var epsGrowth = {annual: {}, quarterly: {}};
 
     // Annual growth
-    annualRecords = annualRecords.sort(function(r1, r2) {
-        return r1.Year - r2.Year;
-    });
-
     for (i = annualRecords.length-1; i >= 1 ; i--) {
         cur = annualRecords[i].Year.toString();
         eps_p = annualRecords[i-1]['EPS (Diluted)'];
@@ -104,10 +100,6 @@ function calculateEPSGrowth(annualRecords, quarterlyRecords) {
     }
 
     // Quarterly growth
-    quarterlyRecords = quarterlyRecords.sort(function(r1, r2) {
-        return compareQuarters(r1.Quarter, r2.Quarter);
-    });
-
     for (i = quarterlyRecords.length-1; i >= 4; i --) {
         cur = quarterlyRecords[i].Quarter;
         eps_p = quarterlyRecords[i-4]['EPS (Diluted)'];
@@ -129,6 +121,47 @@ function calculateEPSGrowth(annualRecords, quarterlyRecords) {
     }
 
     return epsGrowth;
+}
+
+function calculateROE(annualRecords, quarterlyRecords) {
+    var i, cur, netIncome, equity;
+    var roe = {annual: {}, quarterly: {}};
+
+    // Annual ROE
+    for (i = 0; i < annualRecords.length; i++) {
+        cur = annualRecords[i].Year.toString();
+        netIncome = annualRecords[i]['Net Income'];
+        equity = annualRecords[i]['Total Equity'];
+
+        if (!equity) {
+            continue;
+        }
+
+        roe.annual[cur] = (netIncome * 100)/equity;
+
+        if (i == annualRecords.length-1) {
+            roe.currentAnnualROE = roe.annual[cur];
+        }
+    }
+
+    // Quarterly ROE
+    for (i = 0; i < quarterlyRecords.length; i++) {
+        cur = quarterlyRecords[i].Quarter;
+        netIncome = quarterlyRecords[i]['Net Income'];
+        equity = quarterlyRecords[i]['Total Equity'];
+
+        if (!equity) {
+            continue;
+        }
+
+        roe.quarterly[cur] = (netIncome * 100)/equity;
+
+        if (i == quarterlyRecords.length-1) {
+            roe.currentQuarterROE = roe.quarterly[cur];
+        }
+    }
+
+    return roe;
 }
 
 if (dump) {
@@ -187,11 +220,23 @@ if (dump) {
                                 }
                                 quarterlyRecords = records;
 
+                                // Sort financial records
+                                annualRecords = annualRecords.sort(function(r1, r2) {
+                                    return r1.Year - r2.Year;
+                                });
+
+                                quarterlyRecords = quarterlyRecords.sort(function(r1, r2) {
+                                    return compareQuarters(r1.Quarter, r2.Quarter);
+                                });
+
                                 // Calculate EPS growth data
                                 var epsGrowth = calculateEPSGrowth(annualRecords, quarterlyRecords);
 
+                                // Calculate ROE
+                                var roe = calculateROE(annualRecords, quarterlyRecords);
+
                                 // Update EPS table
-                                return finanicals.updateEPS(docClient, stockInfo.Symbol, epsGrowth);
+                                return finanicals.updateEPS(docClient, stockInfo.Symbol, epsGrowth, roe);
                             })
                             .then(function() {
                                 resolve(false); // true means stop scanning the table

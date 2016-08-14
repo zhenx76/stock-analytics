@@ -267,7 +267,7 @@ exports.getEPS = function(docClient, symbol) {
     });
 };
 
-exports.updateEPS = function(docClient, symbol, epsGrowth) {
+exports.updateEPS = function(docClient, symbol, epsGrowth, roe) {
     return when.promise(function(resolve, reject) {
         try {
             if (isEmpty(epsGrowth.annual) || isEmpty(epsGrowth.quarterly)) {
@@ -275,10 +275,17 @@ exports.updateEPS = function(docClient, symbol, epsGrowth) {
                 reject(symbol);
             }
 
-            var expression = 'SET AnnulGrowth = :a, QuarterYearGrowth = :q';
+            if (isEmpty(roe.annual) || isEmpty(roe.quarterly)) {
+                logger.warn(symbol + ': empty annual or quarterly ROE record!');
+                reject(symbol);
+            }
+
+            var expression = 'SET AnnulGrowth = :a, QuarterYearGrowth = :q, AnnualROE = :ar, QuarterROE = :qr';
             var attributes = {
                 ':a': epsGrowth.annual,
-                ':q': epsGrowth.quarterly
+                ':q': epsGrowth.quarterly,
+                ':ar': roe.annual,
+                ':qr': roe.quarterly
             };
 
             if (epsGrowth.hasOwnProperty('currentQuarterGrowth')) {
@@ -304,6 +311,16 @@ exports.updateEPS = function(docClient, symbol, epsGrowth) {
             if (epsGrowth.hasOwnProperty('previousPreviousAnnualGrowthAnnualGrowth')) {
                 expression += ', PreviousPreviousAnnualGrowthAnnualGrowth = :ppa';
                 attributes[':ppa'] = epsGrowth.previousPreviousAnnualGrowthAnnualGrowth;
+            }
+
+            if (roe.hasOwnProperty('currentAnnualROE')) {
+                expression += ', CurrentAnnualROE = :car';
+                attributes[':car'] = roe.currentAnnualROE;
+            }
+
+            if (roe.hasOwnProperty('currentQuarterROE')) {
+                expression += ', CurrentQuarterROE = :cqr';
+                attributes[':cqr'] = roe.currentQuarterROE;
             }
 
             var params = {

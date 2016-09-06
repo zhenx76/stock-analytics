@@ -1,5 +1,7 @@
 //
 // Calculate EPS growth from financial data table and store results back to dynamodb
+// This is essentially a JOIN->Transform operation of stock table and finanical-record table.
+// Will switch over to HiveQL once we start using Amazon EMR (Hadoop + Hive).
 //
 
 // Before deploy to AWS, change local to false
@@ -164,6 +166,39 @@ function calculateROE(annualRecords, quarterlyRecords) {
     return roe;
 }
 
+function calculateRevenueGrowth(annualRecords, quarterlyRecords) {
+    var i, cur, revenue_p, revenue_c;
+    var revenueGrowth = {annual: {}, quarterly: {}};
+
+    // Annual growth
+    for (i = annualRecords.length-1; i >= 1 ; i--) {
+        cur = annualRecords[i].Year.toString();
+        revenue_p = annualRecords[i-1]['Revenue'];
+        revenue_c = annualRecords[i]['Revenue'];
+
+        if (!revenue_p) {
+            continue;
+        }
+
+        revenueGrowth.annual[cur] = ((revenue_c - revenue_p) * 100)/Math.abs(revenue_p);
+    }
+
+    // Quarterly growth
+    for (i = quarterlyRecords.length-1; i >= 4; i--) {
+        cur = quarterlyRecords[i].Quarter;
+        revenue_p = quarterlyRecords[i-4]['Revenue'];
+        revenue_c = quarterlyRecords[i]['Revenue'];
+
+        if (!revenue_p) {
+            continue;
+        }
+
+        revenueGrowth.quarterly[cur] = ((revenue_c - revenue_p) * 100)/Math.abs(revenue_p);
+    }
+
+    return revenueGrowth;
+}
+
 if (dump) {
     when.resolve(null)
         .then(function() {
@@ -235,8 +270,11 @@ if (dump) {
                                 // Calculate ROE
                                 var roe = calculateROE(annualRecords, quarterlyRecords);
 
+                                // Calculate Revenue growth data
+                                var revenueGrowth = calculateRevenueGrowth(annualRecords, quarterlyRecords);
+
                                 // Update EPS table
-                                return finanicals.updateEPS(docClient, stockInfo.Symbol, epsGrowth, roe);
+                                return finanicals.updateEPS(docClient, stockInfo.Symbol, epsGrowth, roe, revenueGrowth);
                             })
                             .then(function() {
                                 resolve(false); // true means stop scanning the table

@@ -267,7 +267,12 @@ exports.getEPS = function(docClient, symbol) {
     });
 };
 
-exports.updateEPS = function(docClient, symbol, epsGrowth, roe) {
+//
+// Essentially the EPS table is the JOIN->Transform results of stock table and finanical-record table.
+// Will deprecate this table once we switch over to Amazon EMR (Hadoop + Hive) which has high performance,
+// real-time join support.
+//
+exports.updateEPS = function(docClient, symbol, epsGrowth, roe, revenueGrowth) {
     return when.promise(function(resolve, reject) {
         try {
             if (isEmpty(epsGrowth.annual) || isEmpty(epsGrowth.quarterly)) {
@@ -280,12 +285,19 @@ exports.updateEPS = function(docClient, symbol, epsGrowth, roe) {
                 reject(symbol);
             }
 
-            var expression = 'SET AnnulGrowth = :a, QuarterYearGrowth = :q, AnnualROE = :ar, QuarterROE = :qr';
+            if (isEmpty(revenueGrowth.annual) || isEmpty(revenueGrowth.quarterly)) {
+                logger.warn(symbol + ': empty annual or quarterly Revenue growth record!');
+                reject(symbol);
+            }
+
+            var expression = 'SET AnnulGrowth = :a, QuarterYearGrowth = :q, AnnualROE = :ar, QuarterROE = :qr, AnnualRevenueGrowth = :arv, QuarterRevenueGrowth = :qrv';
             var attributes = {
                 ':a': epsGrowth.annual,
                 ':q': epsGrowth.quarterly,
                 ':ar': roe.annual,
-                ':qr': roe.quarterly
+                ':qr': roe.quarterly,
+                ':arv': revenueGrowth.annual,
+                ':qrv': revenueGrowth.quarterly
             };
 
             if (epsGrowth.hasOwnProperty('currentQuarterGrowth')) {

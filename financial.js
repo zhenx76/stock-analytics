@@ -358,3 +358,95 @@ exports.updateEPS = function(docClient, symbol, epsGrowth, roe, revenueGrowth) {
         }
     });
 };
+
+exports.scanEPS = function(docClient, filters) {
+    return when.promise(function(resolve, reject) {
+        try {
+            var expression = '';
+            var expressionNames = {};
+            var expressionValues = {};
+            var records = [];
+
+            if (filters.hasOwnProperty('currentQuarterEPSGrowth')) {
+                expression += '#current_quarter >= :current_quarter_eps';
+                expressionNames['#current_quarter'] = 'CurrentQuarterGrowth';
+                expressionValues[':current_quarter_eps'] = filters.currentQuarterEPSGrowth;
+            }
+
+            if (filters.hasOwnProperty('lastQuarterEPSGrowth')) {
+                expression += ' AND #last_quarter >= :last_quarter_eps';
+                expressionNames['#last_quarter'] = 'PreviousQuarterGrowth';
+                expressionValues[':last_quarter_eps'] = filters.lastQuarterEPSGrowth;
+            }
+
+            if (filters.hasOwnProperty('currentAnnualEPSGrowth')) {
+                expression += ' AND #current_year >= :current_year_eps';
+                expressionNames['#current_year'] = 'CurrentAnnualGrowth';
+                expressionValues[':current_year_eps'] = filters.currentAnnualEPSGrowth;
+            }
+
+            if (filters.hasOwnProperty('lastAnnualEPSGrowth')) {
+                expression += ' AND #last_year >= :last_year_eps';
+                expressionNames['#last_year'] = 'PreviousAnnualGrowth';
+                expressionValues[':last_year_eps'] = filters.lastAnnualEPSGrowth;
+            }
+
+            if (filters.hasOwnProperty('previousAnnualEPSGrowth')) {
+                expression += ' AND #previous_year >= :previous_year_eps';
+                expressionNames['#previous_year'] = 'PreviousPreviousAnnualGrowthAnnualGrowth';
+                expressionValues[':previous_year_eps'] = filters.previousAnnualEPSGrowth;
+            }
+
+            if (filters.hasOwnProperty('currentQuarterROE')) {
+                expression += ' AND #current_quarter_return >= :current_quarter_roe';
+                expressionNames['#current_quarter_return'] = 'CurrentQuarterROE';
+                expressionValues[':current_quarter_roe'] = filters.currentQuarterROE;
+            }
+
+            if (filters.hasOwnProperty('currentAnnualROE')) {
+                expression += ' AND #current_year_return >= :current_year_roe';
+                expressionNames['#current_year_return'] = 'CurrentAnnualROE';
+                expressionValues[':current_year_roe'] = filters.currentAnnualROE;
+            }
+
+            var index = expression.indexOf(' AND ');
+            if (index == 0) {
+                expression = expression.substring(index);
+            }
+
+            var params = {
+                TableName: epsTableName,
+                FilterExpression: expression,
+                ExpressionAttributeNames: expressionNames,
+                ExpressionAttributeValues: expressionValues
+            };
+
+            docClient.scan(params, onScan);
+
+            function onScan(err, data) {
+                if (err) {
+                    logger.error("Unable to scan the table. Error JSON:", JSON.stringify(err, null, 2));
+                    reject(data);
+                } else {
+                    logger.info('Scanned ' + data.Count + ' out of ' + data.ScannedCount + ' items');
+                    data.Items.forEach(function(item) {
+                        records.push(item);
+                    });
+
+                    // continue scanning if we have more data to scan
+                    if (typeof data.LastEvaluatedKey != "undefined") {
+                        logger.info(epsTableName + ": Scan partial complete. Schedule the next scan");
+                        params.ExclusiveStartKey = data.LastEvaluatedKey;
+                        docClient.scan(params, onScan);
+                    } else {
+                        logger.info(epsTableName + ': Finished scanning ' + records.length + ' items');
+                        resolve(records);
+                    }
+                }
+            }
+        } catch (exception) {
+            logger.warn(exception);
+            reject(exception);
+        }
+    });
+};

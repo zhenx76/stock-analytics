@@ -70,10 +70,7 @@ module.exports = function(req, res) {
         var filters = getStockFilters(req.body);
 
         query.run(filters).then(function(data) {
-            res.json({
-                filters: filters,
-                records: data
-            });
+            res.json(data);
         });
 
     } catch (exception) {

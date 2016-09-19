@@ -416,6 +416,7 @@ exports.scanEPS = function(docClient, filters) {
 
             var params = {
                 TableName: epsTableName,
+                ProjectionExpression: 'Symbol, CurrentQuarterGrowth, PreviousQuarterGrowth, CurrentAnnualGrowth, CurrentAnnualROE',
                 FilterExpression: expression,
                 ExpressionAttributeNames: expressionNames,
                 ExpressionAttributeValues: expressionValues

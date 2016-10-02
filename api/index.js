@@ -10,7 +10,12 @@ module.exports = {
 
         router.route('/stock-financial')
             .post(function(req, res) {
-                stockFinancial(req, res);
+                stockFinancial.query(req, res);
+            });
+
+        router.route('/stock/:symbol')
+            .get(function(req, res) {
+                stockFinancial.getStock(req, res);
             });
 
         app.use('/api/v1', router);

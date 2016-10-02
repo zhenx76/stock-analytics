@@ -65,12 +65,28 @@ function getStockFilters(params) {
     return filters;
 }
 
-module.exports = function(req, res) {
+exports.query = function(req, res) {
     try {
         var filters = getStockFilters(req.body);
 
         query.run(filters).then(function(data) {
             res.json(data);
+        });
+
+    } catch (exception) {
+        logger.warn(exception);
+        res.status(500).send('Failed to process stock financial data! Error = ' + exception.message);
+    }
+};
+
+exports.getStock = function(req, res) {
+    try {
+        var symbol = req.params.symbol.toUpperCase();
+
+        query.getStockData(symbol).then(function(data) {
+            res.json(data);
+        }).catch(function() {
+           res.status(500).send("Symbol " + symbol + " doesn't exist or error retrieving");
         });
 
     } catch (exception) {

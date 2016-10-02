@@ -25,7 +25,7 @@ exports.getStock = function(docClient, symbol) {
                     if (data.hasOwnProperty('Item')) {
                         resolve(data.Item);
                     } else {
-                        logger.warn("Stock " + symbol + "doesn't exist!");
+                        logger.warn("Stock " + symbol + " doesn't exist!");
                         reject(data);
                     }
                 }

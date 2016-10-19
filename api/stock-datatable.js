@@ -67,11 +67,28 @@ function getStockFilters(params) {
 
 exports.query = function(req, res) {
     try {
-        var filters = getStockFilters(req.body);
+        if (req.body.hasOwnProperty('symbol') && !!(req.body.symbol)) {
+            var symbol = req.body.symbol;
+            query.runSymbol(symbol)
+                .then(function (record) {
+                    res.json([{
+                        PreviousQuarterGrowth: record.PreviousQuarterGrowth || 'N/A',
+                        CurrentAnnualROE: record.CurrentAnnualROE || 'N/A',
+                        CurrentAnnualGrowth: record.CurrentAnnualGrowth || 'N/A',
+                        CurrentQuarterGrowth: record.CurrentQuarterGrowth || 'N/A',
+                        Symbol: record.Symbol
+                    }]);
+                })
+                .catch(function () {
+                    res.status(404).send('Cannot find records for symbol ' + symbol);
+                });
+        } else {
+            var filters = getStockFilters(req.body);
 
-        query.run(filters).then(function(data) {
-            res.json(data);
-        });
+            query.run(filters).then(function(data) {
+                res.json(data);
+            });
+        }
 
     } catch (exception) {
         logger.warn(exception);

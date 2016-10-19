@@ -431,7 +431,13 @@ exports.scanEPS = function(docClient, filters) {
                 } else {
                     logger.info('Scanned ' + data.Count + ' out of ' + data.ScannedCount + ' items');
                     data.Items.forEach(function(item) {
-                        records.push(item);
+                        records.push({
+                            PreviousQuarterGrowth: item.PreviousQuarterGrowth || 'N/A',
+                            CurrentAnnualROE: item.CurrentAnnualROE || 'N/A',
+                            CurrentAnnualGrowth: item.CurrentAnnualGrowth || 'N/A',
+                            CurrentQuarterGrowth: item.CurrentQuarterGrowth || 'N/A',
+                            Symbol: item.Symbol
+                        });
                     });
 
                     // continue scanning if we have more data to scan

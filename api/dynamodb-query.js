@@ -66,6 +66,9 @@ module.exports = {
     run: function(filters) {
         return finanicals.scanEPS(docClient, filters);
     },
+    runSymbol: function(symbol) {
+        return finanicals.getEPS(docClient, symbol);
+    },
     getStockData: function(symbol) {
         return when.promise(function(resolve, reject) {
             when.all([

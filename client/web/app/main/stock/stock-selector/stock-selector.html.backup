@@ -1,0 +1,194 @@
+<div id="stock-selector" class="page-layout carded fullwidth" layout="row">
+    <!-- TOP BACKGROUND -->
+    <div class="top-bg md-accent-bg"></div>
+    <!-- / TOP BACKGROUND -->
+
+    <!-- CENTER -->
+    <div class="center" layout="column" flex>
+
+        <!-- CONTENT HEADER -->
+        <div class="header" layout="row" layout-align="space-between center">
+            <div class="white-fg" layout="column" layout-align="start start">
+                <div class="h1" layout="row" layout-align="start center">
+                    <md-icon md-font-icon="icon-cube-outline"></md-icon>
+                    <span translate="STOCKS.SELECTION">Selection</span>
+                </div>
+                <div class="stock-count secondary-text">
+                    <span translate="STOCKS.NUM_STOCKS">Selected Stocks:</span>
+                    <span>{{vm.stocks.length}}</span>
+                </div>
+            </div>
+
+            <div class="search" layout="row" layout-align="start center" flex>
+                <md-icon md-font-icon="icon-magnify" class="white-text icon search-icon"></md-icon>
+                <input id="stock-symbol-search" class="search-input" type="text" placeholder="Search"
+                       translate translate-attr-placeholder="STOCKS.SEARCH" flex>
+            </div>
+        </div>
+        <!-- / CONTENT HEADER -->
+
+        <!-- CENTER STOCK PANEL -->
+        <div class="center" layout="row">
+
+            <!-- LEFT STOCK FILTER -->
+            <div class="left-sidenav scrollable" layout="column">
+                <div class="content-card" flex>
+                    <h4>EPS Quarterly Growth Rate</h4>
+
+                    <md-slider-container>
+                        <span>Recent Quarter</span>
+                        <md-slider flex min="0" max="100" ng-model="color.red" aria-label="red" id="red-slider">
+                        </md-slider>
+                        <md-input-container>
+                            <input flex type="number" ng-model="color.red" aria-label="red" aria-controls="red-slider">
+                        </md-input-container>
+                    </md-slider-container>
+
+                    <md-slider-container>
+                        <span>Last Quarter</span>
+                        <md-slider flex ng-model="color.green" min="0" max="100" aria-label="green" id="green-slider" class="md-accent">
+                        </md-slider>
+                        <md-input-container>
+                            <input flex type="number" ng-model="color.green" aria-label="green" aria-controls="green-slider">
+                        </md-input-container>
+                    </md-slider-container>
+
+                    <md-divider></md-divider>
+
+                    <h4>EPS Annual Growth Rate</h4>
+
+                    <md-slider-container>
+                        <span>Recent Year</span>
+                        <md-slider flex min="0" max="100" ng-model="color.red" aria-label="red" id="red-slider">
+                        </md-slider>
+                        <md-input-container>
+                            <input flex type="number" ng-model="color.red" aria-label="red" aria-controls="red-slider">
+                        </md-input-container>
+                    </md-slider-container>
+
+                    <md-slider-container>
+                        <span>Last Year</span>
+                        <md-slider flex ng-model="color.green" min="0" max="100" aria-label="green" id="green-slider" class="md-accent">
+                        </md-slider>
+                        <md-input-container>
+                            <input flex type="number" ng-model="color.green" aria-label="green" aria-controls="green-slider">
+                        </md-input-container>
+                    </md-slider-container>
+
+                    <md-slider-container>
+                        <span class="md-body-1">Previous Year</span>
+                        <md-slider flex ng-model="color.blue" min="0" max="100" aria-label="blue" id="blue-slider" class="md-primary">
+                        </md-slider>
+                        <md-input-container>
+                            <input flex type="number" ng-model="color.blue" aria-label="blue" aria-controls="blue-slider">
+                        </md-input-container>
+                    </md-slider-container>
+
+                    <md-divider></md-divider>
+
+                    <h4>ROE</h4>
+
+                    <md-slider-container>
+                        <span>Recent Year</span>
+                        <md-slider flex min="0" max="100" ng-model="color.red" aria-label="red" id="red-slider">
+                        </md-slider>
+                        <md-input-container>
+                            <input flex type="number" ng-model="color.red" aria-label="red" aria-controls="red-slider">
+                        </md-input-container>
+                    </md-slider-container>
+
+                </div>
+            </div>
+            <!-- LEFT STOCK FILTER -->
+
+            <!-- RIGHT STOCK TABLE -->
+            <div class="content-card" layout="column" flex>
+                <!-- CONTENT TOOLBAR -->
+
+                <!-- / CONTENT TOOLBAR -->
+
+                <!-- CONTENT -->
+                <div class="content fullpage-datatable" layout="column" flex>
+
+                    <table class="dataTable row-border hover" datatable="ng" dt-instance="vm.dtInstance"
+                           dt-options="vm.dtOptions">
+                        <thead>
+                        <tr>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">Symbol</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">Name</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">Price</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">EPS Growth<br />(Quarter)</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">EPS Growth<br />(Annual)</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">ROE</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">Sales</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">P/E</span>
+                                </div>
+                            </th>
+                            <th class="secondary-text">
+                                <div class="table-header">
+                                    <span class="column-title">Details</span>
+                                </div>
+                            </th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        <tr ng-repeat="stock in ::vm.stocks">
+                            <td>{{stock.symbol}}</td>
+                            <td>{{stock.name}}</td>
+                            <td>{{stock.price}}</td>
+                            <td>{{stock.eps_quarter}}</td>
+                            <td>{{stock.eps_annual}}</td>
+                            <td>{{stock.roe}}</td>
+                            <td>{{stock.sales}}</td>
+                            <td>{{stock.pe}}</td>
+                            <td>
+                                <md-button class="edit-button md-icon-button" ng-click="vm.gotoProductDetail(product.id)" aria-label="Product details"
+                                           translate translate-attr-aria-label="EC.PRODUCT_DETAILS">
+                                    <md-icon md-font-icon="icon-pencil" class="s16"></md-icon>
+                                </md-button>
+                            </td>
+                        </tr>
+                        </tbody>
+                    </table>
+
+                </div>
+                <!-- / CONTENT -->
+            </div>
+            <!-- RIGHT STOCK TABLE -->
+
+        </div>
+        <!-- CENTER STOCK PANEL -->
+
+    </div>
+    <!-- / CENTER -->
+</div>

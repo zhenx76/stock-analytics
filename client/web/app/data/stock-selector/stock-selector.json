@@ -1,0 +1,197 @@
+{
+    "data": {
+        "helloText": "Hello, I'm a sample page!",
+        "stocks":[
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.202345,
+                "eps_annual": 0.30,
+                "roe": -0.17,
+                "sales": -30000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": -30000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": -0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": -0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            },
+            {
+                "symbol": "AMZN",
+                "name": "Amazon.com",
+                "price": 770,
+                "eps_quarter": 0.20,
+                "eps_annual": 0.30,
+                "roe": 0.17,
+                "sales": 3000000000,
+                "pe": 125
+            }
+        ]
+    }
+}

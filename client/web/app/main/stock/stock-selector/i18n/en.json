@@ -1,0 +1,8 @@
+{
+    "STOCKS": {
+        "NASDAQ_NAV": "Nasdaq",
+        "SELECTION": "Selected Stocks",
+        "NUM_STOCKS": "Number of Selected Stocks: ",
+        "SEARCH": "Type stock symbol to search"
+    }
+}

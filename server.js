@@ -1,15 +1,19 @@
 var logger = require('./utility').logger;
+var when = require('when');
 var express = require('express');
 var bodyParser = require('body-parser');
 var api = require('./api');
+var User = require('./user-mgmt').User;
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 
-var port = 8080;
+var port = process.env.PORT || 8080;
 
 function initWebClient(app) {
+    logger.info('Initializing web client');
+
     //
     // http://stackoverflow.com/questions/20396900/angularjs-routing-in-expressjs
     //
@@ -32,11 +36,19 @@ function initWebClient(app) {
 
 module.exports = {
     init: function() {
-        logger.info('Initializing server');
-        api.init(app);
-
-        logger.info('Initializing web client');
-        initWebClient(app);
+        logger.info('Stock analytics v0.1');
+        return when.promise(function(resolve, reject) {
+            User.init()
+                .then(function() {
+                    api.init(app);
+                    initWebClient(app);
+                    resolve(null);
+                })
+                .catch(function(error) {
+                    logger.error('Fail to init server' + + JSON.stringify(err, null, 2));
+                    reject(error);
+                });
+        });
     },
     getServer: function() {
         return app;

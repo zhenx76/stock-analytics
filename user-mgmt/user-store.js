@@ -111,12 +111,10 @@ function updateDataStore(self) {
         var jsonArray = [];
         var totalLength = 0;
         self.users.forEach(function (user) {
-            var userStr = JSON.stringify(user);
+            var userStr = JSON.stringify(user) + os.EOL;
             jsonArray.push(userStr);
             totalLength += Buffer.byteLength(userStr);
         });
-        jsonArray.push(os.EOL);
-        totalLength += Buffer.byteLength(os.EOL);
 
         // Write data to S3
         // In order to upload any object to S3, we need to provide a Content-Length.

@@ -73,11 +73,12 @@ User.prototype.addToWatchList = function(symbol) {
     for (var i = 0; i < this.watch_list.length; i++) {
         if (symbol == this.watch_list[i]) {
             logger.warn('Ignore already watched symbol ' + symbol);
-            return;
+            return when.resolve();
         }
     }
 
     this.watch_list.push(symbol);
+    return userStore.saveUser(this, true);
 };
 
 User.prototype.removeFromWatchList = function(symbol) {
@@ -88,11 +89,12 @@ User.prototype.removeFromWatchList = function(symbol) {
             list = list.concat(this.watch_list.splice(0, i));
             list = list.concat(this.watch_list.splice(1, this.watch_list.length));
             this.watch_list = list;
-            return;
+            return userStore(this, true);
         }
     }
 
     logger.warn('Ignore unwatched symbol ' + symbol);
+    return when.resolve();
 };
 
 User.prototype.save = function() {

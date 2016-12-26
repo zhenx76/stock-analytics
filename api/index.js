@@ -3,6 +3,7 @@ var express = require('express');
 var passport = require('passport');
 var auth = require('./auth');
 var stockFinancial = require('./stock-datatable');
+var stockPortfolio = require('./stock-portfolio');
 
 var router = express.Router();
 
@@ -37,6 +38,14 @@ module.exports = {
         router.route('/memberinfo')
             .get(passport.authenticate('jwt', {session: false}), function(req, res) {
                 auth.getUserProfile(req, res);
+            });
+
+        router.route('/portfolio/watchlist')
+            .post(passport.authenticate('jwt', {session: false}), function(req, res) {
+                stockPortfolio.addWatchList(req, res);
+            })
+            .delete(passport.authenticate('jwt', {session: false}), function(req, res) {
+                stockPortfolio.removeWatchList(req, res);
             });
 
         app.use('/api/v1', router);

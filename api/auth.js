@@ -90,6 +90,21 @@ exports.getUserProfile = function(req, res) {
     }
 };
 
+exports.decodeUser = function(req, cb) {
+    var token = getToken(req.headers);
+    if (token) {
+        var decoded = jwt.decode(token, config.secret);
+        var user = User.find(decoded.username);
+        if (!user) {
+            cb(new Error('Authentication failed. User not found.'), null);
+        } else {
+            cb(null, user);
+        }
+    } else {
+        cb(new Error('No token provided.'), null);
+    }
+};
+
 function getToken(headers) {
     if (headers && headers.authorization) {
         var parted = headers.authorization.split(' ');

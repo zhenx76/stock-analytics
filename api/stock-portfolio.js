@@ -56,3 +56,26 @@ exports.queryWatchList = function(req, res) {
         }
     });
 };
+
+exports.getStock = function(req, res) {
+    decodeUser(req, function(err, user) {
+        if (err) {
+            res.status(403).send({success: false, msg: err.message});
+        } else {
+            var symbol = req.params.symbol || '';
+            if (!!symbol) {
+                symbol = symbol.toUpperCase();
+                query.getStockData(symbol)
+                    .then(function(data) {
+                        res.json(data);
+                    })
+                    .catch(function (err) {
+                        logger.error(err);
+                        res.status(500).send({success: false, msg: "Symbol " + symbol + " doesn't exist or error retrieving"});
+                    });
+            } else {
+                res.status(400).send({success: false, msg: 'Invalid symbol'});
+            }
+        }
+    });
+};

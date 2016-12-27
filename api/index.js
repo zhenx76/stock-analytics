@@ -51,6 +51,11 @@ module.exports = {
                 stockPortfolio.removeWatchList(req, res);
             });
 
+        router.route('/portfolio/stock/:symbol')
+            .get(passport.authenticate('jwt', {session: false}), function(req, res) {
+                stockPortfolio.getStock(req, res);
+            });
+
         app.use('/api/v1', router);
     }
 };

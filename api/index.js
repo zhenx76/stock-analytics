@@ -41,6 +41,9 @@ module.exports = {
             });
 
         router.route('/portfolio/watchlist')
+            .get(passport.authenticate('jwt', {session: false}), function(req, res) {
+                stockPortfolio.queryWatchList(req, res);
+            })
             .post(passport.authenticate('jwt', {session: false}), function(req, res) {
                 stockPortfolio.addWatchList(req, res);
             })

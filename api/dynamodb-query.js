@@ -2,13 +2,13 @@
 // Query interface to Dynamodb tables
 //
 
-// Before deploy to AWS, change local to false
-var local = false;
-
 var when = require('when');
 var logger = require('../utility').logger;
 var stocks = require('../stock');
 var finanicals = require('../financial');
+var config = require('../config');
+
+var local = config.local;
 
 var AWS = require('aws-sdk');
 AWS.config.region = 'us-west-1';
@@ -68,6 +68,36 @@ module.exports = {
     },
     runSymbol: function(symbol) {
         return finanicals.getEPS(docClient, symbol);
+    },
+    runSymbolList: function(symbols) {
+        var index = 0;
+        var records = [];
+
+        return when.promise(function(resolve, reject) {
+            (function runNextSymbol(symbol) {
+                finanicals.getEPS(docClient, symbol)
+                    .then(function(record) {
+                        records.push({
+                            PreviousQuarterGrowth: record.PreviousQuarterGrowth || 'N/A',
+                            CurrentAnnualROE: record.CurrentAnnualROE || 'N/A',
+                            CurrentAnnualGrowth: record.CurrentAnnualGrowth || 'N/A',
+                            CurrentQuarterGrowth: record.CurrentQuarterGrowth || 'N/A',
+                            Symbol: record.Symbol
+                        });
+
+                        index++;
+                        if (index == symbols.length) {
+                            resolve(records);
+                        } else {
+                            runNextSymbol(symbols[index]);
+                        }
+                    })
+                    .catch(function(error) {
+                        logger.error(error);
+                        reject('Cannot get EPS records for ' + symbol);
+                    })
+            })(symbols[0]);
+        });
     },
     getStockData: function(symbol) {
         return when.promise(function(resolve, reject) {

@@ -119,3 +119,20 @@ exports.updateStockPosition = function(req, res) {
         }
     });
 };
+
+exports.getUserPositions = function(req, res) {
+    decodeUser(req, function(err, user) {
+        if (err) {
+            res.status(403).send({success: false, msg: err.message});
+        } else {
+            query.getUserPositions(user.username)
+                .then(function(data) {
+                    res.json(data);
+                })
+                .catch(function(error) {
+                    logger.error(error);
+                    res.status(400).send({success: false, msg: error});
+                })
+        }
+    });
+};

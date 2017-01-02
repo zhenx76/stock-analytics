@@ -172,6 +172,9 @@ module.exports = {
             });
         });
     },
+    getUserPositions: function(username) {
+        return portfolio.getUserPositions(docClient, username);
+    },
     updateUserStockPosition: function(username, symbol, price, shares, datetime, action) {
         return portfolio.updateUserStockPosition(docClient, username, symbol, price, shares, datetime, action);
     }

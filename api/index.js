@@ -61,6 +61,11 @@ module.exports = {
                 stockPortfolio.updateStockPosition(req, res);
             });
 
+        router.route('/portfolio/positions')
+            .get(passport.authenticate('jwt', {session: false}), function(req, res) {
+                stockPortfolio.getUserPositions(req, res);
+            });
+
         app.use('/api/v1', router);
     }
 };

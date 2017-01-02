@@ -64,7 +64,6 @@ exports.getUserPositions = function(docClient, username) {
         try {
             var params = {
                 TableName: portfolioTableName,
-                ProjectionExpression: 'User, Symbol, TotalShares',
                 KeyConditionExpression: "#u = :nnnn",
                 ExpressionAttributeNames:{"#u": "User"},
                 ExpressionAttributeValues: {":nnnn": username}
@@ -78,15 +77,28 @@ exports.getUserPositions = function(docClient, username) {
                     if (data.hasOwnProperty('Items')) {
                         var records = [];
                         data.Items.forEach(function(Item) {
-                            records.push({
+                            var record = {
                                 username: Item.User,
                                 symbol: Item.Symbol,
                                 totalShares: Item.TotalShares,
                                 pyramidingPhases: Item.PyramidingPhases,
                                 holdings: Item.Holdings,
                                 transactions: Item.Transactions
-                            });
+                            };
+
+                            if (record.totalShares && record.holdings.length > 0) {
+                                var target = getNextPriceTarget(record);
+
+                                records.push({
+                                    symbol: record.symbol,
+                                    totalShares: record.totalShares,
+                                    phase: record.holdings[record.holdings.length-1].phase,
+                                    nextPriceTarget: target.price,
+                                    stopLossPrice: target.stopLossPrice
+                                });
+                            }
                         });
+
                         resolve(records);
                     } else {
                         logger.info("No position of " + symbol + " found for " + username);

@@ -6,6 +6,7 @@ var when = require('when');
 var logger = require('../utility').logger;
 var stocks = require('../stock');
 var finanicals = require('../financial');
+var portfolio = require('../portfolio');
 var config = require('../config');
 
 var local = config.local;
@@ -128,6 +129,51 @@ module.exports = {
                 reject(symbol);
             });
         });
+    },
+    getUserStockData: function(username, symbol) {
+        return when.promise(function(resolve, reject) {
+            when.all([
+                // Promise 1: quarterly financial records
+                finanicals.getFinancialRecords(docClient, symbol, true),
+
+                // Promise 2: annual financial records
+                finanicals.getFinancialRecords(docClient, symbol, false),
+
+                // Promise 3: stock information
+                stocks.getStock(docClient, symbol),
+
+                // Promise 4: user stock position information
+                portfolio.getUserStockPosition(docClient, username, symbol)
+
+            ]).then(function(values) {
+                var stockData = {
+                    info: {Symbol: symbol, Name: values[2].Name},
+                    quarterlyRecords: values[0].sort(function(r1, r2) {
+                        return compareQuarters(r1.Quarter, r2.Quarter);
+                    }),
+                    annualRecords: values[1].sort(function(r1, r2) {
+                        return r1.Year - r2.Year;
+                    })
+                };
+
+                var stockHoldingRecord = values[3];
+                if (stockHoldingRecord) {
+                    stockData.userData = {
+                        holdings: stockHoldingRecord.holdings,
+                        nextPriceTarget: portfolio.getNextPriceTarget(stockHoldingRecord),
+                        transactions: stockHoldingRecord.transactions
+                    }
+                }
+
+                resolve(stockData);
+
+            }).catch(function() {
+                reject(symbol);
+            });
+        });
+    },
+    updateUserStockPosition: function(username, symbol, price, shares, datetime, action) {
+        return portfolio.updateUserStockPosition(docClient, username, symbol, price, shares, datetime, action);
     }
 };
 

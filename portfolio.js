@@ -174,6 +174,8 @@ var pyramidingModels = [
     }
 ];
 
+var maxProfitLevel = 1.15;
+
 function getPyramidingIndex(phase) {
     for (var i = 0; i < pyramidingModels.length; i++) {
         if (phase == pyramidingModels[i].phase) {
@@ -294,13 +296,19 @@ var getNextPriceTarget = exports.getNextPriceTarget = function(record) {
     var holding = record.holdings[record.holdings.length-1];
     var index = getPyramidingIndex(holding.phase);
     if (index < pyramidingModels.length - 1) {
-        return record.pyramidingPhases[pyramidingModels[++index].phase];
+        return {
+            price: record.pyramidingPhases[pyramidingModels[index+1].phase].price,
+            shares: record.pyramidingPhases[pyramidingModels[index+1].phase].shares,
+            stopLossPrice: record.pyramidingPhases[pyramidingModels[index].phase].stopLossPrice,
+            profitPrice: record.pyramidingPhases[pyramidingModels[0].phase].price * maxProfitLevel
+        };
     } else {
         // We are at the top of pyramid, do not buy anymore
         return {
             price: 0,
             shares: 0,
-            stopLossPrice: record.pyramidingPhases[holding.phase].stopLossPrice
+            stopLossPrice: record.pyramidingPhases[holding.phase].stopLossPrice,
+            profitPrice: record.pyramidingPhases[pyramidingModels[0].phase].price * maxProfitLevel
         };
     }
 };

@@ -290,7 +290,7 @@ function processSellTransaction(record, shares) {
 
 var getNextPriceTarget = exports.getNextPriceTarget = function(record) {
     if (record.totalShares == 0) {
-        return {price: 0, shares: 0, stopLossPrice: 0};
+        return {price: 0, shares: 0, stopLossPrice: 0, profitPrice: 0};
     }
 
     var holding = record.holdings[record.holdings.length-1];
@@ -344,11 +344,14 @@ exports.updateUserStockPosition = function(docClient, username, symbol, price, s
                     }
                 }
 
+                // Dynamodb doesn't support Date type
+                // Use JSON.parse(JSON.stringify(date)) to convert date to string
+                // without extra quotation marks
                 record.transactions.push({
                     action: action,
                     price: price,
                     shares: shares,
-                    datetime: datetime
+                    datetime: JSON.parse(JSON.stringify(datetime))
                 });
 
                 // Update database
@@ -376,7 +379,12 @@ exports.updateUserStockPosition = function(docClient, username, symbol, price, s
                         reject(err);
                     } else {
                         logger.info(action + " " + symbol + " for " + username);
-                        resolve(getNextPriceTarget(record));
+
+                        resolve({
+                            holdings: record.holdings,
+                            nextPriceTarget: getNextPriceTarget(record),
+                            transactions: record.transactions.slice().reverse()
+                        });
                     }
                 });
             }).catch(function(err) {

@@ -161,7 +161,7 @@ module.exports = {
                     stockData.userData = {
                         holdings: stockHoldingRecord.holdings,
                         nextPriceTarget: portfolio.getNextPriceTarget(stockHoldingRecord),
-                        transactions: stockHoldingRecord.transactions
+                        transactions: stockHoldingRecord.transactions.slice().reverse()
                     }
                 }
 

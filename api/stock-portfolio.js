@@ -88,7 +88,7 @@ exports.updateStockPosition = function(req, res) {
             var symbol = req.body.symbol || '';
             var price = parseFloat(req.body.price);
             var shares = parseFloat(req.body.shares);
-            var datetime = new Date(req.body.datatime || '');
+            var datetime = new Date(req.body.datetime || '');
             var action = req.body.action || '';
             var errMsg = '';
 

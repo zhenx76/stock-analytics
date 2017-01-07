@@ -1,7 +1,7 @@
 #!/bin/bash
 
 APP_DIR = $(PWD)/..
-LOGS_DIR = $(PWD)/logs
+LOGS_DIR = /tmp/logs
 TODAY = `date '+%Y_%m_%d__%H_%M_%S'`
 S3_BUCKET = s3://stock-analytics/logs
 

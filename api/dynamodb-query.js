@@ -177,6 +177,9 @@ module.exports = {
     },
     updateUserStockPosition: function(username, symbol, price, shares, datetime, action) {
         return portfolio.updateUserStockPosition(docClient, username, symbol, price, shares, datetime, action);
+    },
+    getStockPositions: function(symbol) {
+        return portfolio.getStockPositions(docClient, symbol);
     }
 };
 

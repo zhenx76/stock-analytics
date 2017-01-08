@@ -71,7 +71,7 @@ exports.initPortfolioTable = function(db) {
         {AttributeName: "User", AttributeType: "S"},
         {AttributeName: "Symbol", AttributeType: "S"}
     ];
-    var indexName = 'portfolioIndexName';
+    var indexName = portfolioIndexName;
     var indexSchema = [
         {AttributeName: "Symbol", KeyType: "HASH"} //Partition key
     ];
@@ -95,6 +95,59 @@ function getRecordFromItem(Item) {
         profitPrice: Item.ProfitPrice
     };
 }
+
+function getRecordFromIndexItem(Item) {
+    return {
+        username: Item.User,
+        symbol: Item.Symbol,
+        totalShares: Item.TotalShares,
+        currentPhase: Item.CurrentPhase,
+        nextPriceTarget: Item.NextPriceTarget,
+        stopLossPrice: Item.StopLossPrice,
+        profitPrice: Item.ProfitPrice
+    };
+}
+
+exports.getStockPositions = function(docClient, symbol) {
+    return when.promise(function(resolve, reject) {
+        try {
+            var params = {
+                TableName: portfolioTableName,
+                IndexName: portfolioIndexName, // Query on Global Secondary Index
+                KeyConditionExpression: "#s = :ssss",
+                ExpressionAttributeNames:{"#s": "Symbol"},
+                ExpressionAttributeValues: {":ssss": symbol}
+            };
+
+            docClient.query(params, function(err, data) {
+                if (err) {
+                    logger.error("Unable to query items. Error JSON:", JSON.stringify(err, null, 2));
+                    reject(err);
+                } else {
+                    if (data.hasOwnProperty('Items')) {
+                        var records = [];
+                        data.Items.forEach(function(Item) {
+                            var record = getRecordFromIndexItem(Item);
+
+                            if (record.totalShares) {
+                                records.push(record);
+                            }
+                        });
+
+                        resolve(records);
+                    } else {
+                        logger.info("No stock holdings for " + symbol);
+                        resolve(null);
+                    }
+                }
+            });
+
+        } catch (exception) {
+            logger.warn(exception);
+            reject(exception);
+        }
+    });
+};
 
 exports.getUserPositions = function(docClient, username) {
     return when.promise(function(resolve, reject) {
@@ -436,3 +489,87 @@ exports.updateUserStockPosition = function(docClient, username, symbol, price, s
         }
     });
 };
+
+function scanNextUserStockPosition(docClient, startKey) {
+    return when.promise(function(resolve, reject) {
+        try {
+            var params = {
+                TableName: portfolioTableName,
+                IndexName: portfolioIndexName,
+                Limit: 1 // Rate limiting scan operation
+            };
+
+            if (startKey != null) {
+                params.ExclusiveStartKey = startKey;
+            }
+
+            docClient.scan(params, function(err, data) {
+                if (err) {
+                    logger.error("Unable to get item. Error JSON:", JSON.stringify(err, null, 2));
+                    reject(err);
+                } else if (data.hasOwnProperty('Items')) {
+                    var records = [];
+                    for (var i = 0; i < data.Items.length; i++) {
+                        records.push(getRecordFromIndexItem(data.Items[i]));
+                    }
+
+                    var result = {records: records};
+
+                    if (data.hasOwnProperty('LastEvaluatedKey') && data.LastEvaluatedKey) {
+                        result.nextStartKey = data.LastEvaluatedKey;
+                        result.isFinal = false;
+                    } else {
+                        result.isFinal = true;
+                    }
+
+                    resolve(result);
+                }
+            });
+        } catch (exception) {
+            logger.warn(exception);
+            reject(null);
+        }
+    });
+}
+
+exports.forEachUserStockPosition = function(docClient, delay, callback) {
+    var startKey = null;
+    var isFinal = false;
+    var counter = 0;
+
+    (function scanNextRecord() {
+        when.resolve(null)
+            .then(function() {
+                return scanNextUserStockPosition(docClient, startKey);
+            })
+            .then(function(result) {
+                isFinal = result.isFinal;
+                if (result.hasOwnProperty('nextStartKey')) {
+                    startKey = result.nextStartKey;
+                }
+                counter += result.records.length;
+                if (result.records.length > 1) {
+                    logger.error('Scan return more records than we asked! result.records.length == '
+                        + result.records.length);
+                }
+
+                if (result.records.length == 0) {
+                    return false; // return false to continue scan next item
+                } else {
+                    return callback(result.records[0], isFinal);
+                }
+            })
+            .then(function(stopScan) {
+                if (isFinal) {
+                    logger.info('Scanned ' + counter + ' records from index ' + portfolioIndexName);
+                } else if (stopScan) {
+                    logger.info('Stop scan index ' + portfolioIndexName + ' per user request');
+                } else {
+                    // For real deployment, throttle dynamodb request
+                    // to minimize required read/write units
+                    setTimeout(scanNextRecord, delay);
+                }
+            });
+    })();
+};
+

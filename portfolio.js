@@ -59,6 +59,21 @@ exports.initPortfolioTable = function(db) {
     return initTable(db, portfolioTableName, schema, attributes, 1, 1);
 };
 
+function getRecordFromItem(Item) {
+    return {
+        username: Item.User,
+        symbol: Item.Symbol,
+        totalShares: Item.TotalShares,
+        pyramidingPhases: Item.PyramidingPhases,
+        holdings: Item.Holdings,
+        transactions: Item.Transactions,
+        currentPhase: Item.CurrentPhase,
+        nextPriceTarget: Item.NextPriceTarget,
+        stopLossPrice: Item.StopLossPrice,
+        profitPrice: Item.ProfitPrice
+    };
+}
+
 exports.getUserPositions = function(docClient, username) {
     return when.promise(function(resolve, reject) {
         try {
@@ -77,24 +92,15 @@ exports.getUserPositions = function(docClient, username) {
                     if (data.hasOwnProperty('Items')) {
                         var records = [];
                         data.Items.forEach(function(Item) {
-                            var record = {
-                                username: Item.User,
-                                symbol: Item.Symbol,
-                                totalShares: Item.TotalShares,
-                                pyramidingPhases: Item.PyramidingPhases,
-                                holdings: Item.Holdings,
-                                transactions: Item.Transactions
-                            };
+                            var record = getRecordFromItem(Item);
 
                             if (record.totalShares && record.holdings.length > 0) {
-                                var target = getNextPriceTarget(record);
-
                                 records.push({
                                     symbol: record.symbol,
                                     totalShares: record.totalShares,
-                                    phase: record.holdings[record.holdings.length-1].phase,
-                                    nextPriceTarget: target.price,
-                                    stopLossPrice: target.stopLossPrice
+                                    phase: record.currentPhase,
+                                    nextPriceTarget: record.nextPriceTarget,
+                                    stopLossPrice: record.stopLossPrice
                                 });
                             }
                         });
@@ -131,14 +137,7 @@ var getUserStockPosition = exports.getUserStockPosition = function(docClient, us
                     reject(err);
                 } else {
                     if (data.hasOwnProperty('Item')) {
-                        resolve({
-                            username: data.Item.User,
-                            symbol: data.Item.Symbol,
-                            totalShares: data.Item.TotalShares,
-                            pyramidingPhases: data.Item.PyramidingPhases,
-                            holdings: data.Item.Holdings,
-                            transactions: data.Item.Transactions
-                        });
+                        resolve(getRecordFromItem(data.Item));
                     } else {
                         logger.info("No position of " + symbol + " found for " + username);
                         resolve(null);
@@ -344,6 +343,15 @@ exports.updateUserStockPosition = function(docClient, username, symbol, price, s
                     }
                 }
 
+                // Update next price targets
+                var target = getNextPriceTarget(record);
+                if (record.totalShares && record.holdings.length > 0) {
+                    record.currentPhase = record.holdings[record.holdings.length - 1].phase;
+                    record.nextPriceTarget = target.price;
+                    record.stopLossPrice = target.stopLossPrice;
+                    record.profitPrice = target.profitPrice;
+                }
+
                 // Dynamodb doesn't support Date type
                 // Use JSON.parse(JSON.stringify(date)) to convert date to string
                 // without extra quotation marks
@@ -362,6 +370,15 @@ exports.updateUserStockPosition = function(docClient, username, symbol, price, s
                     ':hd': record.holdings,
                     ':tr': record.transactions
                 };
+
+
+                if (record.totalShares && record.holdings.length > 0) {
+                    expression += ' CurrentPhase = :cp, NextPriceTarget = :np, ProfitPrice = :pp, StopLossPrice = :sp';
+                    attributes[':cp'] = record.currentPhase;
+                    attributes[':np'] = record.nextPriceTarget;
+                    attributes[':pp'] = record.profitPrice;
+                    attributes[':sp'] = record.stopLossPrice;
+                }
 
                 var params = {
                     TableName: portfolioTableName,
@@ -382,7 +399,7 @@ exports.updateUserStockPosition = function(docClient, username, symbol, price, s
 
                         resolve({
                             holdings: record.holdings,
-                            nextPriceTarget: getNextPriceTarget(record),
+                            nextPriceTarget: target,
                             transactions: record.transactions.slice().reverse()
                         });
                     }

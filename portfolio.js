@@ -6,8 +6,9 @@ var logger = require('./utility').logger;
 var when = require('when');
 
 var portfolioTableName = 'stocks-portfolio';
+var portfolioIndexName = 'stocks-portfolio-symbol-index';
 
-function initTable(db, tableName, schema, attributes, readCapacity, writeCapacity) {
+function initTable(db, tableName, schema, attributes, readCapacity, writeCapacity, indexName, indexSchema, projections) {
     return when.promise(function(resolve, reject) {
         db.listTables(function (err, data) {
             if (err) {
@@ -30,7 +31,21 @@ function initTable(db, tableName, schema, attributes, readCapacity, writeCapacit
                     ProvisionedThroughput: {
                         ReadCapacityUnits: readCapacity,
                         WriteCapacityUnits: writeCapacity
-                    }
+                    },
+                    GlobalSecondaryIndexes: [
+                        {
+                            IndexName: indexName,
+                            KeySchema: indexSchema,
+                            Projection: {
+                                ProjectionType: "INCLUDE",
+                                NonKeyAttributes: projections
+                            },
+                            ProvisionedThroughput: {
+                                ReadCapacityUnits: readCapacity,
+                                WriteCapacityUnits: writeCapacity
+                            }
+                        }
+                    ]
                 };
 
                 db.createTable(params, function(err, data) {
@@ -56,7 +71,14 @@ exports.initPortfolioTable = function(db) {
         {AttributeName: "User", AttributeType: "S"},
         {AttributeName: "Symbol", AttributeType: "S"}
     ];
-    return initTable(db, portfolioTableName, schema, attributes, 1, 1);
+    var indexName = 'portfolioIndexName';
+    var indexSchema = [
+        {AttributeName: "Symbol", KeyType: "HASH"} //Partition key
+    ];
+    var projections = [
+        "CurrentPhase", "NextPriceTarget", "StopLossPrice", "ProfitPrice"
+    ];
+    return initTable(db, portfolioTableName, schema, attributes, 1, 1, indexName, indexSchema, projections);
 };
 
 function getRecordFromItem(Item) {
@@ -100,6 +122,7 @@ exports.getUserPositions = function(docClient, username) {
                                     totalShares: record.totalShares,
                                     phase: record.currentPhase,
                                     nextPriceTarget: record.nextPriceTarget,
+                                    profitPrice: record.profitPrice,
                                     stopLossPrice: record.stopLossPrice
                                 });
                             }
@@ -373,10 +396,10 @@ exports.updateUserStockPosition = function(docClient, username, symbol, price, s
 
 
                 if (record.totalShares && record.holdings.length > 0) {
-                    expression += ' CurrentPhase = :cp, NextPriceTarget = :np, ProfitPrice = :pp, StopLossPrice = :sp';
+                    expression += ', CurrentPhase = :cp, NextPriceTarget = :np, ProfitPrice = :rp, StopLossPrice = :sp';
                     attributes[':cp'] = record.currentPhase;
                     attributes[':np'] = record.nextPriceTarget;
-                    attributes[':pp'] = record.profitPrice;
+                    attributes[':rp'] = record.profitPrice;
                     attributes[':sp'] = record.stopLossPrice;
                 }
 

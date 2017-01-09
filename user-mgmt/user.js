@@ -82,15 +82,10 @@ User.prototype.addToWatchList = function(symbol) {
 };
 
 User.prototype.removeFromWatchList = function(symbol) {
-    var list = [];
-
-    for (var i = 0; i < this.watch_list.length; i++) {
-        if (symbol == this.watch_list[i]) {
-            list = list.concat(this.watch_list.splice(0, i));
-            list = list.concat(this.watch_list.splice(1, this.watch_list.length));
-            this.watch_list = list;
-            return userStore(this, true);
-        }
+    var i = this.watch_list.indexOf(symbol);
+    if (i != -1) {
+        this.watch_list.splice(i, 1);
+        return userStore.saveUser(this, true);
     }
 
     logger.warn('Ignore unwatched symbol ' + symbol);

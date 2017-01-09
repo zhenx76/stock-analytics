@@ -25,7 +25,7 @@ exports.removeWatchList = function(req, res) {
         if (err) {
             res.status(403).send({success: false, msg: err.message});
         } else {
-            var symbol = req.body.symbol || '';
+            var symbol = req.query.symbol || '';
             if (!!symbol) {
                 user.removeFromWatchList(symbol).then(function() {
                     res.json({success: true});

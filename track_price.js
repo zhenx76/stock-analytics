@@ -9,21 +9,30 @@ var yahooFinance = require('yahoo-finance');
 var logger = require('./utility').logger;
 var config = require('./config');
 var portfolio = require('./portfolio');
+var User = require('./user-mgmt').User;
 
 var AWS = require('aws-sdk');
-AWS.config.region = 'us-west-1';
 
 //
 // Get a handle of Dynamodb
 //
 var db, docClient;
 if (config.local) {
-    db = new AWS.DynamoDB({endpoint: new AWS.Endpoint('http://localhost:8000')});
-    docClient = new AWS.DynamoDB.DocumentClient({endpoint: new AWS.Endpoint('http://localhost:8000')});
+    db = new AWS.DynamoDB({
+        endpoint: new AWS.Endpoint('http://localhost:8000'),
+        region: 'us-west-1'
+    });
+    docClient = new AWS.DynamoDB.DocumentClient({
+        endpoint: new AWS.Endpoint('http://localhost:8000'),
+        region: 'us-west-1'
+    });
 } else {
     db = new AWS.DynamoDB();
     docClient = new AWS.DynamoDB.DocumentClient();
 }
+
+// Get a handle of SES
+var ses = new AWS.SES({region:'us-west-2'});
 
 //
 // Go through each user stock position in database, for each stock
@@ -47,9 +56,9 @@ function getPriceSnapshot(symbol) {
                 if (err) {
                     reject(err);
                 } else {
-                    if (snapshot.hasOwnProperty('previousClose') && snapshot.previousClose) {
-                        stockPrices[symbol] = snapshot.previousClose;
-                        resolve(snapshot.previousClose);
+                    if (snapshot.hasOwnProperty('lastTradePriceOnly') && snapshot.lastTradePriceOnly) {
+                        stockPrices[symbol] = snapshot.lastTradePriceOnly;
+                        resolve(snapshot.lastTradePriceOnly);
                     }
                 }
             });
@@ -58,7 +67,7 @@ function getPriceSnapshot(symbol) {
 }
 
 function checkPriceTargets(record, price) {
-    var msg = 'Previous closing price $' + price.toFixed(2);
+    var msg = record.symbol + ' price $' + price.toFixed(2);
     var action;
     if (price >= record.profitPrice) {
         msg += ' meets profit target $' + record.profitPrice.toFixed(2);
@@ -72,7 +81,7 @@ function checkPriceTargets(record, price) {
     }
 
     if (action) {
-        msg += '\nConsider ' + action;
+        msg += '. Consider ' + action + '.';
         return msg;
     } else {
         return null;
@@ -80,10 +89,44 @@ function checkPriceTargets(record, price) {
 }
 
 function sendEmailToUser(username, msg) {
-    logger.info(msg);
+    return when.promise(function(resolve, reject) {
+        var user = User.find(username);
+        if (!user) {
+            reject(new Error('Invalid user ' + username));
+        } else {
+            var from = 'zhenx76@me.com'; // Need to update to domain email
+            var params = {
+                Source: from,
+                Destination: {
+                    ToAddresses: [user.email]
+                },
+                Message: {
+                    Subject: {
+                        Data: 'STOCK ALERT'
+                    },
+                    Body: {
+                        Text: {
+                            Data: msg
+                        }
+                    }
+                }
+            };
+
+            ses.sendEmail(params, function(err, data) {
+                if (err || !data) {
+                    logger.error('Failed to send email to ' + username);
+                    reject(err);
+                } else {
+                    logger.info('MessageId ' + data.MessageId + ' sent to ' + username + ' ' + user.email);
+                    resolve();
+                }
+            });
+        }
+    });
 }
 
 when.resolve()
+    .then(function() { return User.init(); })
     .then(function() { return portfolio.initPortfolioTable(db); })
     .then(function() {
         portfolio.forEachUserStockPosition(docClient, delay, function(record, isFinal) {

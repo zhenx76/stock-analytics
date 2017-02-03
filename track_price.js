@@ -69,13 +69,13 @@ function getPriceSnapshot(symbol) {
 function checkPriceTargets(record, price) {
     var msg = record.symbol + ' price $' + price.toFixed(2);
     var action;
-    if (price >= record.profitPrice) {
+    if (!!record.profitPrice && price >= record.profitPrice) {
         msg += ' meets profit target $' + record.profitPrice.toFixed(2);
         action = 'SELL';
-    } else if (price >= record.nextPriceTarget) {
+    } else if (!!record.nextPriceTarget && price >= record.nextPriceTarget) {
         msg += ' beats next price target $' + record.nextPriceTarget.toFixed(2);
         action = 'BUY';
-    } else if (price < record.stopLossPrice) {
+    } else if (!!record.stopLossPrice && price < record.stopLossPrice) {
         msg += ' misses stop loss price $' + record.stopLossPrice.toFixed(2);
         action = 'SELL';
     }

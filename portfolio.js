@@ -6,7 +6,7 @@ var logger = require('./utility').logger;
 var when = require('when');
 
 var portfolioTableName = 'stocks-portfolio';
-var portfolioIndexName = 'stocks-portfolio-symbol-index';
+var portfolioIndexName = 'stocks-portfolio-symbol-index-1';
 
 function initTable(db, tableName, schema, attributes, readCapacity, writeCapacity, indexName, indexSchema, projections) {
     return when.promise(function(resolve, reject) {
@@ -510,7 +510,10 @@ function scanNextUserStockPosition(docClient, startKey) {
                 } else if (data.hasOwnProperty('Items')) {
                     var records = [];
                     for (var i = 0; i < data.Items.length; i++) {
-                        records.push(getRecordFromIndexItem(data.Items[i]));
+                        var record = getRecordFromIndexItem(data.Items[i]);
+                        if (record.totalShares) {
+                            records.push(record);
+                        }
                     }
 
                     var result = {records: records};

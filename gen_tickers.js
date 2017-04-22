@@ -3,12 +3,11 @@
 // - Read the CSV from S3 bucket
 // - Generate the "stock" table in dynamodb
 
-// Before deploy to AWS, change local to false
-var local = false;
-
 var logger = require('./utility').logger;
 var when = require('when');
 var fs = require('fs');
+var config = require('./config');
+var local = config.local;
 
 var AWS = require('aws-sdk');
 AWS.config.region = 'us-west-1';

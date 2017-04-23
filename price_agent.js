@@ -16,7 +16,7 @@ function getPriceSnapshot(symbols) {
             // Get price snapshot from Yahoo Finance
             yahooFinance.snapshot({
                 symbols: symbols,
-                fields: ['s', 'p', 'l1']
+                fields: ['s', 'p', 'l1', 'c1', 'p2']
             }, function (err, results) {
                 if (err) {
                     reject(err);
@@ -27,7 +27,11 @@ function getPriceSnapshot(symbols) {
                         if (record.hasOwnProperty('symbol') &&
                             record.hasOwnProperty('lastTradePriceOnly') &&
                             record.lastTradePriceOnly) {
-                            snapshot[record.symbol] = record.lastTradePriceOnly;
+                            snapshot[record.symbol] = {
+                                price: record.lastTradePriceOnly,
+                                change: record.change,
+                                changeInPercent: record.changeInPercent
+                            };
                         }
                     }
                     resolve(snapshot);

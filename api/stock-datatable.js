@@ -105,12 +105,17 @@ exports.query = function(req, res) {
                     return priceAgent.getPriceSnapshot(symbols);
                 })
                 .then(function (snapshot) {
-                    // filter out penny stocks
-                    for (var i = 0; i < records.length; i++) {
-                        var record = records[i];
-                        if (snapshot.hasOwnProperty(record.Symbol) && snapshot[record.Symbol] >= 5.0) {
-                            results.push(record);
+                    if (snapshot) {
+                        // filter out penny stocks
+                        for (var i = 0; i < records.length; i++) {
+                            var record = records[i];
+                            if (snapshot.hasOwnProperty(record.Symbol) && snapshot[record.Symbol].price >= 5.0) {
+                                results.push(record);
+                            }
                         }
+                    } else {
+                        // No snapshot data, don't filter.
+                        results = records;
                     }
                     res.json(results);
                 })

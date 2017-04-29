@@ -1,6 +1,8 @@
+var when = require('when');
 var config = require('../config');
 var decodeUser = require('./auth').decodeUser;
 var query = require('./dynamodb-query');
+var priceAgent = require('../price_agent');
 var logger = require('../utility').logger;
 
 exports.addWatchList = function(req, res) {
@@ -44,15 +46,30 @@ exports.queryWatchList = function(req, res) {
         } else if (!user.watch_list || user.watch_list.length == 0) {
             res.json([]); // We have to return an array to make Angular JS datatable happy
         } else {
-            query.runSymbolList(user.watch_list)
-                .then(function(data) {
-                    logger.info('Queried EPS data for ' + user.watch_list);
-                    res.json(data);
-                })
-                .catch(function(error) {
-                    logger.error(error);
-                    res.status(400).send({success: false, msg: error});
-                })
+            when.all([
+                // promise 0: EPS data
+                query.runSymbolList(user.watch_list),
+
+                // promise 1: price snapshot
+                priceAgent.getPriceSnapshot(user.watch_list)
+
+            ]).then(function (values) {
+                logger.info('Queried EPS data for ' + user.watch_list);
+
+                var results = values[0];
+                var snapshot = values[1];
+
+                for (var i = 0; i < results.length; i++) {
+                    if (snapshot.hasOwnProperty(results[i].Symbol)) {
+                        results[i].Snapshot = snapshot[results[i].Symbol];
+                    }
+                }
+
+                res.json(results);
+            }).catch(function(error) {
+                logger.error(error);
+                res.status(400).send({success: false, msg: JSON.stringify(error, null, 2)});
+            });
         }
     });
 };

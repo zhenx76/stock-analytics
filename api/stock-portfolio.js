@@ -142,13 +142,29 @@ exports.getUserPositions = function(req, res) {
         if (err) {
             res.status(403).send({success: false, msg: err.message});
         } else {
+            var records;
             query.getUserPositions(user.username)
                 .then(function(data) {
-                    res.json(data);
+                    records = data;
+
+                    var symbols = [];
+                    for (var i = 0; i < data.length; i++) {
+                        symbols.push(data[i].symbol);
+                    }
+
+                    return priceAgent.getPriceSnapshot(symbols);
+                })
+                .then(function(snapshot) {
+                    for (var i = 0; i < records.length; i++) {
+                        if (snapshot.hasOwnProperty(records[i].symbol)) {
+                            records[i].snapshot = snapshot[records[i].symbol];
+                        }
+                    }
+                    res.json(records);
                 })
                 .catch(function(error) {
-                    logger.error(error);
-                    res.status(400).send({success: false, msg: error});
+                    logger.error(JSON.stringify(error, null, 2));
+                    res.status(400).send({success: false, msg: JSON.stringify(error, null, 2)});
                 })
         }
     });

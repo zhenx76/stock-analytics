@@ -6,6 +6,7 @@
 var logger = require('./utility').logger;
 var when = require('when');
 var fs = require('fs');
+var parseArgs = require('minimist');
 var config = require('./config');
 var local = config.local;
 
@@ -54,7 +55,6 @@ parser.on('finish', function() {
 
 // Create stock table in dynamodb
 var db, docClient;
-var tableName = 'stocks-nasdaq';
 
 if (local) {
     db = new AWS.DynamoDB({endpoint: new AWS.Endpoint('http://localhost:8000')});
@@ -176,20 +176,29 @@ function addStock(tableName, record) {
     });
 }
 
+var argv = parseArgs(process.argv.slice(2));
+var argvT = argv.t || 'nasdaq';
+var csv = argvT.toLowerCase() + '.csv';
+var tableName = 'stocks-' + argvT.toLowerCase();
+
+console.log('Generate tickers table ' + tableName + ' from ' + csv);
+
 when.resolve(null)
     .then(function() {return initTable(tableName);})
     .then(function() {
         var input;
         if (local) {
             // Read the file from local file system
-            input = fs.createReadStream(__dirname + '/nasdaq.csv');
+            input = fs.createReadStream(__dirname + '/' + csv);
         } else {
             // Read the file from S3
             var s3 = new AWS.S3();
-            var params = {Bucket: 'stock-analytics', Key: 'nasdaq.csv'};
+            var params = {Bucket: 'stock-analytics', Key: csv};
             input = s3.getObject(params).createReadStream();
         }
 
         // Start parsing CSV
         input.pipe(parser);
     });
+
+console.log('Done');

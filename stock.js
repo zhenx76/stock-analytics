@@ -6,38 +6,63 @@ var logger = require('./utility').logger;
 var when = require('when');
 var assert = require('assert');
 
-var symbolTableName = 'stocks-nasdaq';
+function getStockFromExchange(docClient, exchange, symbol, callback) {
+    try {
+        // Check whether the stock exists
+        var symbolTableName = 'stocks-' + exchange;
+        var msg = '';
+
+        var params = {
+            TableName: symbolTableName,
+            Key:{"Symbol": symbol}
+        };
+
+        docClient.get(params, function(err, data) {
+            if (err) {
+                msg = 'Unable to get item from ' + symbolTableName + '. Error JSON:' + JSON.stringify(err, null, 2);
+                callback(new Error(msg), null);
+            } else {
+                if (data.hasOwnProperty('Item')) {
+                    callback(null, data.Item);
+                } else {
+                    msg = "Stock " + symbol + " doesn't exist in " + symbolTableName;
+                    callback(new Error(msg), null);
+                }
+            }
+        });
+    } catch (exception) {
+        callback(exception, null);
+    }
+}
 
 exports.getStock = function(docClient, symbol) {
     return when.promise(function(resolve, reject) {
-        try {
-            // Check whether the stock exists
-            var params = {
-                TableName: symbolTableName,
-                Key:{"Symbol": symbol}
-            };
-
-            docClient.get(params, function(err, data) {
-                if (err) {
-                    logger.error("Unable to get item. Error JSON:", JSON.stringify(err, null, 2));
-                    reject(data);
-                } else {
-                    if (data.hasOwnProperty('Item')) {
-                        resolve(data.Item);
+        getStockFromExchange(docClient, 'nasdaq', symbol, function(err, data) {
+            if (!err && !!data) { // first check Nasdaq
+                logger.info('Found + ' + symbol + ' in Nasdaq');
+                data.exchange = 'nasdaq';
+                resolve(data);
+            } else {
+                // trying NYSE
+                getStockFromExchange(docClient, 'nyse', symbol, function(err, data) {
+                    if (!err && !!data) {
+                        logger.info('Found ' + symbol + ' in NYSE');
+                        data.exchange = 'nyse';
+                        resolve(data);
                     } else {
-                        logger.warn("Stock " + symbol + " doesn't exist!");
+                        logger.error("Stock " + symbol + " doesn't exist!");
                         reject(data);
                     }
-                }
-            });
-        } catch (exception) {
-            logger.warn(exception);
-            reject(symbol);
-        }
+                });
+            }
+        });
     });
 };
 
-exports.updateStock = function(docClient, stockInfo) {
+exports.updateStock = function(docClient, stockInfo, exchange) {
+    exchange = (typeof exchange !== 'undefined') ? exchange : 'nasdaq';
+    var symbolTableName = 'stocks-' + exchange;
+
     return when.promise(function(resolve, reject) {
         try {
             var params = {
@@ -66,7 +91,7 @@ exports.updateStock = function(docClient, stockInfo) {
     });
 };
 
-function getNextStock(docClient, startKey) {
+function getNextStock(docClient, symbolTableName, startKey) {
     return when.promise(function(resolve, reject) {
         try {
             var params = {
@@ -107,15 +132,16 @@ function getNextStock(docClient, startKey) {
     });
 }
 
-exports.forEachStock = function(docClient, delay, callback) {
+exports.forEachStock = function(docClient, exchange, delay, callback) {
     var startKey = null;
     var isFinal = false;
     var counter = 0;
+    var symbolTableName = 'stocks-' + exchange;
 
     (function scanNextRecord() {
         when.resolve(null)
             .then(function() {
-                return getNextStock(docClient, startKey);
+                return getNextStock(docClient, symbolTableName, startKey);
             })
             .then(function(result) {
                 isFinal = result.isFinal;

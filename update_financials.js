@@ -3,14 +3,15 @@
 // Data is stored into dynamodb
 //
 
-// Before deploy to AWS, change local to false
-var local = false;
-
 var when = require('when');
+var parseArgs = require('minimist');
 var logger = require('./utility').logger;
 var stocks = require('./stock');
 var finanicals = require('./financial');
 var scraper = require('./scraper');
+
+var config = require('./config');
+var local = config.local;
 
 var AWS = require('aws-sdk');
 AWS.config.region = 'us-west-1';
@@ -28,6 +29,12 @@ if (local) {
 }
 
 //
+// Get exchange name (Nasdaq or NYSE)
+//
+var argv = parseArgs(process.argv.slice(2));
+var exchange = (argv.t || 'nasdaq').toLowerCase();
+
+//
 // Go through each stock in database and scrape its financial data
 //
 var delay = local ? 0 : 1000;
@@ -35,7 +42,7 @@ var delay = local ? 0 : 1000;
 when.resolve(null)
     .then(function() { return finanicals.initFinancialTables(db); })
     .then(function() {
-        stocks.forEachStock(docClient, delay, function(stockInfo, isFinal) {
+        stocks.forEachStock(docClient, exchange, delay, function(stockInfo, isFinal) {
             return when.promise(function(resolve, reject) {
                 try {
                     logger.info('Processing ' + stockInfo.Symbol);
@@ -99,7 +106,7 @@ when.resolve(null)
                         })
                         .then(function() {
                             // Update stock timestamps
-                            return stocks.updateStock(docClient, stockInfo);
+                            return stocks.updateStock(docClient, stockInfo, exchange);
                         })
                         .then(function() {
                             resolve(false); // true means stop scanning the table

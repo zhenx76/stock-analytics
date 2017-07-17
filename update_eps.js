@@ -4,16 +4,14 @@
 // Will switch over to HiveQL once we start using Amazon EMR (Hadoop + Hive).
 //
 
-// Before deploy to AWS, change local to false
-var local = false;
-
-// Change dump to true to display the EPS data
-var dump = false;
-
 var when = require('when');
+var parseArgs = require('minimist');
 var logger = require('./utility').logger;
 var stocks = require('./stock');
 var finanicals = require('./financial');
+
+var config = require('./config');
+var local = config.local;
 
 var AWS = require('aws-sdk');
 AWS.config.region = 'us-west-1';
@@ -199,10 +197,17 @@ function calculateRevenueGrowth(annualRecords, quarterlyRecords) {
     return revenueGrowth;
 }
 
+//
+// Get exchange name (Nasdaq or NYSE)
+//
+var argv = parseArgs(process.argv.slice(2));
+var exchange = (argv.t || 'nasdaq').toLowerCase();
+var dump = argv.d || false;
+
 if (dump) {
     when.resolve(null)
         .then(function() {
-            stocks.forEachStock(docClient, delay, function(stockInfo, isFinal) {
+            stocks.forEachStock(docClient, exchange, delay, function(stockInfo, isFinal) {
                 return when.promise(function (resolve, reject) {
                     when.resolve(null)
                         .then(function() {
@@ -225,7 +230,7 @@ if (dump) {
     when.resolve(null)
         .then(function() { return finanicals.initFinancialTables(db); })
         .then(function() {
-            stocks.forEachStock(docClient, delay, function(stockInfo, isFinal) {
+            stocks.forEachStock(docClient, exchange, delay, function(stockInfo, isFinal) {
                 return when.promise(function (resolve, reject) {
                     try {
                         logger.info('Processing ' + stockInfo.Symbol);

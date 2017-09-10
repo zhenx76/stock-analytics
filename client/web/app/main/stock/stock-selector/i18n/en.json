@@ -1,8 +1,9 @@
 {
     "STOCKS": {
-        "NASDAQ_NAV": "Nasdaq",
+        "NASDAQ_NAV": "Stock Screener",
         "SELECTION": "Selected Stocks",
         "NUM_STOCKS": "Number of Selected Stocks: ",
-        "SEARCH": "Type stock symbol to search"
+        "SEARCH": "Type stock symbol to search",
+        "MARKET": "The Market"
     }
 }

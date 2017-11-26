@@ -21,6 +21,6 @@
         "jwt-simple": "^0.3.1",
         "passport": "^0.3.0",
         "passport-jwt": "^1.2.1",
-        "yahoo-finance": "~0.2.16"
+        "alphavantage": "*"
     }
 }

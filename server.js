@@ -4,6 +4,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var api = require('./api');
 var User = require('./user-mgmt').User;
+var priceAgent = require('./price_agent');
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: true}));
@@ -42,6 +43,7 @@ module.exports = {
                 .then(function() {
                     api.init(app);
                     initWebClient(app);
+                    priceAgent.init();
                     resolve(null);
                 })
                 .catch(function(error) {

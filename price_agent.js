@@ -7,6 +7,109 @@ var config = require('./config');
 var alpha = require('alphavantage')({key: config.alphaVantageKey});
 var logger = require('./utility').logger;
 
+/*
+ * Use Alpha Vantage API to return the price snapshot
+ */
+function getPriceSnapshotSingle(symbol) {
+    return when.promise(function (resolve, reject) {
+        alpha.data.daily(symbol).then(function(result) {
+            var prices = [];
+            var key = 'Time Series (Daily)';
+            var priceKey = '4. close';
+            if (result.hasOwnProperty(key) && result[key]) {
+                var record = result[key];
+                for (var dateKey in record) {
+                    if (record.hasOwnProperty(dateKey)) {
+                        var date = new Date(dateKey);
+                        if (date) {
+                            prices.push({
+                                date: date,
+                                price: record[dateKey][priceKey]
+                            })
+                        }
+                    }
+                }
+            }
+
+            // sort prices array by date
+            prices.sort(function (p1, p2) {
+                return p2.date - p1.date;
+            });
+
+            resolve({
+                price: prices[0].price,
+                change: prices[0].price - prices[1].price,
+                changeInPercent: (prices[0].price - prices[1].price)/prices[1].price
+            });
+
+        }).catch(function(err) {
+            reject(err);
+        });
+    });
+}
+
+/*
+ * Since the Alpha Vantage API is very slow, I create a cache here
+ * for repeated access. Also create a background thread to fetch the price
+ * every 5 minutes from 9am to 4pm EST on weekdays.
+ */
+var priceCache = {};
+var priceCacheUpdateInterval = 5 * 60 * 1000;
+var stopUpdatePrice = false;
+
+function isEmptyObject(obj) {
+    return !Object.keys(obj).length;
+}
+
+function updatePriceCache() {
+    if (stopUpdatePrice) {
+        // Get a signal stop fetch prices
+        return;
+    }
+
+    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var now = new Date();
+    var day = days[now.getDay()];
+    var hour = now.getHours();
+
+    if ((day == 'Saturday' || day == 'Sunday' || hour < 9 || hour >= 13) || isEmptyObject(priceCache)) {
+        // We only update the cache on weekday during work hours.
+        setTimeout(updatePriceCache, priceCacheUpdateInterval);
+        return;
+    }
+
+    // Go through each symbol in the cache
+    var symbols = [];
+    for (var symbol in priceCache) {
+        if (priceCache.hasOwnProperty(symbol)) {
+            symbols.push(symbol);
+        }
+    }
+
+    var index = 0;
+    (function updateNextCacheEntry() {
+        symbol = symbols[index];
+        getPriceSnapshotSingle(symbol).then(function(snapshot) {
+            priceCache[symbol] = {
+                timeStamp: Date.now(),
+                quote: snapshot
+            };
+
+            if (++index == symbols.length) {
+                // reach the end of array, schedule the next update.
+                logger.info('Update price cache complete with ' + symbols.length + ' quotes at ' + Date.now());
+                setTimeout(updatePriceCache, priceCacheUpdateInterval);
+            } else {
+                // download the next quote
+                setTimeout(updateNextCacheEntry, 0);
+            }
+        }).catch(function (err) {
+            logger.error("Unable to download quote. Try next time", JSON.stringify(err, null, 2));
+            setTimeout(updatePriceCache, priceCacheUpdateInterval);
+        });
+    })();
+}
+
 function getPriceSnapshot(symbols) {
     return when.promise(function (resolve, reject) {
         try {
@@ -14,46 +117,41 @@ function getPriceSnapshot(symbols) {
                 symbols = [symbols]; // make it an array
             }
 
-            // Query daily price using Alpha Vantage API
-            var index = 0;
             var snapshot = {};
+            var missingSymbols = [];
 
-            (function getPriceSnapshotSingle() {
-                var symbol = symbols[index];
-                alpha.data.daily(symbol).then(function(result) {
-                    var prices = [];
-                    var key = 'Time Series (Daily)';
-                    var priceKey = '4. close';
-                    if (result.hasOwnProperty(key) && result[key]) {
-                        var record = result[key];
-                        for (var dateKey in record) {
-                            if (record.hasOwnProperty(dateKey)) {
-                                var date = new Date(dateKey);
-                                if (date) {
-                                    prices.push({
-                                        date: date,
-                                        price: record[dateKey][priceKey]
-                                    })
-                                }
-                            }
-                        }
-                    }
+            // Fetch quotes from cache first
+            for (var i = 0; i < symbols.length; i++) {
+                var symbol = symbols[i];
+                if (priceCache.hasOwnProperty(symbol) && priceCache[symbol]) {
+                    snapshot[symbol] = priceCache[symbol].quote;
+                } else {
+                    missingSymbols.push(symbol);
+                }
+            }
 
-                    // sort prices array by date
-                    prices.sort(function (p1, p2) {
-                        return p2.date - p1.date;
-                    });
+            if (missingSymbols.length == 0) {
+                resolve(snapshot);
+                return;
+            }
 
-                    snapshot[symbol] = {
-                        price: prices[0].price,
-                        change: prices[0].price - prices[1].price,
-                        changeInPercent: (prices[0].price - prices[1].price)/prices[1].price
+            // Download quotes for symbols not in cache
+            var index = 0;
+            (function getNextPriceSnapshot() {
+                symbol = missingSymbols[index];
+                getPriceSnapshotSingle(symbol).then(function(result) {
+                    snapshot[symbol] = result;
+
+                    // Update cache
+                    priceCache[symbol] = {
+                        timeStamp: Date.now(),
+                        quote: result
                     };
 
-                    if (++index == symbols.length) {
+                    if (++index == missingSymbols.length) {
                         resolve(snapshot);
                     } else {
-                        setTimeout(getPriceSnapshotSingle, 0);
+                        setTimeout(getNextPriceSnapshot, 0);
                     }
                 }).catch(function(err) {
                     reject(err);
@@ -108,6 +206,11 @@ function getPriceSnapshot(symbols) {
  */
 
 exports.getPriceSnapshot = getPriceSnapshot;
+
+exports.init = function() {
+    logger.info('start price cache');
+    updatePriceCache();
+};
 
 /*
 // Unit Test

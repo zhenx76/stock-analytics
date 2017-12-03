@@ -5,7 +5,7 @@
 //
 
 var when = require('when');
-var yahooFinance = require('yahoo-finance');
+var priceAgent = require('./price_agent');
 var logger = require('./utility').logger;
 var config = require('./config');
 var portfolio = require('./portfolio');
@@ -49,18 +49,11 @@ function getPriceSnapshot(symbol) {
             resolve(stockPrices[symbol]);
         } else {
             // Get price snapshot from Yahoo Finance
-            yahooFinance.snapshot({
-                symbol: symbol,
-                fields: ['s', 'p', 'l1']
-            }, function (err, snapshot) {
-                if (err) {
-                    reject(err);
-                } else {
-                    if (snapshot.hasOwnProperty('lastTradePriceOnly') && snapshot.lastTradePriceOnly) {
-                        stockPrices[symbol] = snapshot.lastTradePriceOnly;
-                        resolve(snapshot.lastTradePriceOnly);
-                    }
-                }
+            priceAgent.getPriceSnapshot(symbol).then(function(snapshot) {
+                stockPrices[symbol] = snapshot.price;
+                resolve(snapshot.price);
+            }).catch(function(err) {
+               reject(err);
             });
         }
     });

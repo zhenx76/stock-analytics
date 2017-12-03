@@ -72,7 +72,7 @@ function updatePriceCache() {
     var day = days[now.getDay()];
     var hour = now.getHours();
 
-    if ((day == 'Saturday' || day == 'Sunday' || hour < 9 || hour >= 13) || isEmptyObject(priceCache)) {
+    if ((day == 'Saturday' || day == 'Sunday' || hour < 6 || hour >= 14) || isEmptyObject(priceCache)) {
         // We only update the cache on weekday during work hours.
         setTimeout(updatePriceCache, priceCacheUpdateInterval);
         return;

@@ -54,7 +54,7 @@ function getPriceSnapshot(symbol) {
                 resolve(snapshot[symbol].price);
             }).catch(function(err) {
                reject(err);
-            });F
+            });
         }
     });
 }

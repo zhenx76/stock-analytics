@@ -48,13 +48,13 @@ function getPriceSnapshot(symbol) {
         if (stockPrices.hasOwnProperty(symbol)) {
             resolve(stockPrices[symbol]);
         } else {
-            // Get price snapshot from Yahoo Finance
+            // Get price snapshot
             priceAgent.getPriceSnapshot(symbol).then(function(snapshot) {
-                stockPrices[symbol] = snapshot.price;
-                resolve(snapshot.price);
+                stockPrices[symbol] = snapshot[symbol].price;
+                resolve(snapshot[symbol].price);
             }).catch(function(err) {
                reject(err);
-            });
+            });F
         }
     });
 }

@@ -24,7 +24,7 @@ function getPriceSnapshotSingle(symbol) {
                         if (date) {
                             prices.push({
                                 date: date,
-                                price: record[dateKey][priceKey]
+                                price: parseFloat(record[dateKey][priceKey])
                             })
                         }
                     }

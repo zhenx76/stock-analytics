@@ -9,7 +9,7 @@ S3_BUCKET=s3://stock-analytics/logs
 mkdir -p ${LOGS_DIR}/${TODAY}
 
 # Update financial data
-${HOME}/.nvm/v0.10.22/bin/node ${APP_DIR}/track_price.js > ${LOGS_DIR}/${TODAY}/track_price.log
+${HOME}/.nvm/versions/node/v6.10.2/bin/node ${APP_DIR}/track_price.js > ${LOGS_DIR}/${TODAY}/track_price.log
 
 # Copy log file to S3
 aws s3 cp ${LOGS_DIR}/${TODAY}/track_price.log ${S3_BUCKET}/${TODAY}-track_price.log

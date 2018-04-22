@@ -137,6 +137,7 @@ function getPriceSnapshot(symbols) {
 
             // Download quotes for symbols not in cache
             var index = 0;
+            var retries = 0;
             (function getNextPriceSnapshot() {
                 symbol = missingSymbols[index];
                 getPriceSnapshotSingle(symbol).then(function(result) {
@@ -151,10 +152,21 @@ function getPriceSnapshot(symbols) {
                     if (++index == missingSymbols.length) {
                         resolve(snapshot);
                     } else {
+                        retries = 0;
                         setTimeout(getNextPriceSnapshot, 0);
                     }
                 }).catch(function(err) {
-                    reject(err);
+                    if (retries++ < 3) {
+                        setTimeout(getNextPriceSnapshot, retries * 1000);
+                    } else {
+                        logger.error("Skip fetching symbol " + symbol + ' due to error: ', JSON.stringify(err));
+
+                        if (++index == missingSymbols.length) {
+                            resolve(snapshot);
+                        } else {
+                            setTimeout(getNextPriceSnapshot, retries * 1000);
+                        }
+                    }
                 });
             })();
         } catch (error) {

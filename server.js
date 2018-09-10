@@ -29,6 +29,9 @@ function initWebClient(app) {
     app.use('/app', express.static(__dirname + '/client/web/app'));
     app.use('/maps', express.static(__dirname + '/client/web/maps'));
 
+    // For Let's Encrypt certification
+    app.use('/.well-known', express.static(__dirname + '/client/web/well-known'));
+
     // serve index.html for all remaining routes, in order to leave routing up to angular
     app.all("/*", function(req, res, next) {
         res.sendfile("index.html", { root: __dirname + "/client/web" });

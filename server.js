@@ -1,16 +1,33 @@
 var logger = require('./utility').logger;
 var when = require('when');
+var https = require('https');
+var fs = require('fs');
 var express = require('express');
 var bodyParser = require('body-parser');
 var api = require('./api');
 var User = require('./user-mgmt').User;
 var priceAgent = require('./price_agent');
+var config = require('./config');
+var useSSL = !config.local;
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
 
 var port = process.env.PORT || 8080;
+
+//
+// SSL Certificate
+//
+if (useSSL) {
+    var credentials = {
+        key: fs.readFileSync(__dirname + '/cert/privkey.pem'),
+        cert: fs.readFileSync(__dirname + '/cert/cert.pem'),
+        ca: fs.readFileSync(__dirname + '/cert/chain.pem')
+    };
+
+    var sslPort = process.env.SSL_PORT || 8443;
+}
 
 function initWebClient(app) {
     logger.info('Initializing web client');
@@ -61,5 +78,8 @@ module.exports = {
     start: function() {
         logger.info('Starting server on port ' + port);
         app.listen(port);
+        if (useSSL) {
+            https.createServer(credentials, app).listen(sslPort);
+        }
     }
 };

@@ -22,7 +22,7 @@ var port = process.env.PORT || 8080;
 if (useSSL) {
     var credentials = {
         key: fs.readFileSync(__dirname + '/cert/privkey.pem'),
-        cert: fs.readFileSync(__dirname + '/cert/cert.pem'),
+        cert: fs.readFileSync(__dirname + '/cert/fullchain.pem'),
         ca: fs.readFileSync(__dirname + '/cert/chain.pem')
     };
 

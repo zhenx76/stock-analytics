@@ -5,6 +5,7 @@
 var when = require('when');
 var config = require('./config');
 var alpha = require('alphavantage')({key: config.alphaVantageKey});
+var mqtt = require('mqtt');
 var logger = require('./utility').logger;
 
 /*
@@ -49,119 +50,46 @@ function getPriceSnapshotSingle(symbol) {
 }
 
 /*
- * Since the Alpha Vantage API is very slow, I create a cache here
- * for repeated access. Also create a background thread to fetch the price
- * every 5 minutes from 9am to 4pm EST on weekdays.
+ * Since the Alpha Vantage API is very slow, I use an asynchronous design to download the quotes:
+ * 1. Other applications will tell price agent which symbols to track through mqtt (stock/symbols)
+ * 2. Stock agent will publish the stock quotes through mqtt (stock/quotes)
+ * 3. The price agent is always running in the background and download the quotes periodically (every 5 minutes)
+ * 4. For each iteration, price agent will pace at 1 second interval
  */
-var priceCache = {};
-var priceCacheUpdateInterval = 5 * 60 * 1000;
-var stopUpdatePrice = false;
 
-function isEmptyObject(obj) {
-    return !Object.keys(obj).length;
-}
-
-function updatePriceCache() {
-    if (stopUpdatePrice) {
-        // Get a signal stop fetch prices
-        return;
-    }
-
-    var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    var now = new Date();
-    var day = days[now.getDay()];
-    var hour = now.getHours();
-
-    if ((day == 'Saturday' || day == 'Sunday' || hour < 6 || hour >= 14) || isEmptyObject(priceCache)) {
-        // We only update the cache on weekday during work hours.
-        setTimeout(updatePriceCache, priceCacheUpdateInterval);
-        return;
-    }
-
-    // Go through each symbol in the cache
-    var symbols = [];
-    for (var symbol in priceCache) {
-        if (priceCache.hasOwnProperty(symbol)) {
-            symbols.push(symbol);
-        }
-    }
-
-    var index = 0;
-    (function updateNextCacheEntry() {
-        symbol = symbols[index];
-        getPriceSnapshotSingle(symbol).then(function(snapshot) {
-            priceCache[symbol] = {
-                timeStamp: Date.now(),
-                quote: snapshot
-            };
-
-            if (++index == symbols.length) {
-                // reach the end of array, schedule the next update.
-                logger.info('Update price cache complete with ' + symbols.length + ' quotes at ' + Date.now());
-                setTimeout(updatePriceCache, priceCacheUpdateInterval);
-            } else {
-                // download the next quote
-                setTimeout(updateNextCacheEntry, 0);
-            }
-        }).catch(function (err) {
-            logger.error("Unable to download quote. Try next time", JSON.stringify(err, null, 2));
-            setTimeout(updatePriceCache, priceCacheUpdateInterval);
-        });
-    })();
-}
+var symbolsToTrack = [];
+var updateInterval = 5 * 60 * 1000;
 
 function getPriceSnapshot(symbols) {
     return when.promise(function (resolve, reject) {
         try {
-            if (!Array.isArray(symbols)) {
-                symbols = [symbols]; // make it an array
-            }
-
-            var snapshot = {};
-            var missingSymbols = [];
-
-            // Fetch quotes from cache first
-            for (var i = 0; i < symbols.length; i++) {
-                var symbol = symbols[i];
-                if (priceCache.hasOwnProperty(symbol) && priceCache[symbol]) {
-                    snapshot[symbol] = priceCache[symbol].quote;
-                } else {
-                    missingSymbols.push(symbol);
-                }
-            }
-
-            if (missingSymbols.length == 0) {
-                resolve(snapshot);
+            if (symbols.length == 0) {
+                resolve(null);
                 return;
             }
 
-            // Download quotes for symbols not in cache
+            var snapshot = {};
             var index = 0;
             var retries = 0;
+
             (function getNextPriceSnapshot() {
-                symbol = missingSymbols[index];
+                var symbol = symbols[index];
                 getPriceSnapshotSingle(symbol).then(function(result) {
                     snapshot[symbol] = result;
 
-                    // Update cache
-                    priceCache[symbol] = {
-                        timeStamp: Date.now(),
-                        quote: result
-                    };
-
-                    if (++index == missingSymbols.length) {
+                    if (++index == symbols.length) {
                         resolve(snapshot);
                     } else {
                         retries = 0;
-                        setTimeout(getNextPriceSnapshot, 0);
+                        setTimeout(getNextPriceSnapshot, 1000);
                     }
                 }).catch(function(err) {
-                    if (retries++ < 3) {
+                    if (retries++ < 2) {
                         setTimeout(getNextPriceSnapshot, retries * 1000);
                     } else {
                         logger.error("Skip fetching symbol " + symbol + ' due to error: ', JSON.stringify(err));
 
-                        if (++index == missingSymbols.length) {
+                        if (++index == symbols.length) {
                             resolve(snapshot);
                         } else {
                             setTimeout(getNextPriceSnapshot, retries * 1000);
@@ -176,84 +104,128 @@ function getPriceSnapshot(symbols) {
     });
 }
 
-/*
-  Yahoo Finance API is no longer available
-function getPriceSnapshot(symbols) {
-    return when.promise(function (resolve, reject) {
+var mqttClient;
+var TOPIC_SYMBOL = config.mqttTopicSymbol;
+var TOPIC_QUOTE = config.mqttTopicQutoes;
+
+function downloadQuotes() {
+    if (symbolsToTrack.length) {
+        getPriceSnapshot(symbolsToTrack).then(function(snapshot) {
+            logger.info('Publish quotes on topic: ' + TOPIC_QUOTE + ' for symbols:' + symbolsToTrack.toString());
+            mqttClient.publish(TOPIC_QUOTE, JSON.stringify(snapshot));
+        });
+    }
+}
+
+mqttClient = mqtt.connect(config.mqttBrokerURL);
+
+mqttClient.on('connect', function() {
+    logger.info('Connected to ' + config.mqttBrokerURL);
+
+    // subscribe to symbol topic as input
+    logger.info('Subscribing to topic: ' + TOPIC_SYMBOL);
+    mqttClient.subscribe(TOPIC_SYMBOL);
+
+    // start a timer to download quotes periodically
+    setInterval(downloadQuotes, updateInterval);
+});
+
+mqttClient.on('message', function(topic, message) {
+    if (topic == TOPIC_SYMBOL) {
         try {
-            if (!Array.isArray(symbols)) {
-                symbols = [symbols]; // make it an array
+            var params, action, symbols;
+
+            // Parse command parameters
+            params = JSON.parse(message.toString());
+            if (params.hasOwnProperty('action')) {
+                action = params['action'].toUpperCase();
+            }
+            if (params.hasOwnProperty('symbols')) {
+                symbols = params['symbols'];
             }
 
-            // Get price snapshot from Yahoo Finance
-            yahooFinance.snapshot({
-                symbols: symbols,
-                fields: ['s', 'p', 'l1', 'c1', 'p2']
-            }, function (err, results) {
-                if (err) {
-                    reject(err);
-                } else {
-                    var snapshot = {};
-                    for (var i = 0; i < results.length; i++) {
-                        var record = results[i];
-                        if (record.hasOwnProperty('symbol') &&
-                            record.hasOwnProperty('lastTradePriceOnly') &&
-                            record.lastTradePriceOnly) {
-                            snapshot[record.symbol] = {
-                                price: record.lastTradePriceOnly,
-                                change: record.change,
-                                changeInPercent: record.changeInPercent
-                            };
-                        }
-                    }
-                    resolve(snapshot);
+            // Validate command parameters
+            if (action != 'ADD' && action != 'DELETE') {
+                throw new Error('Invalid action parameter');
+            }
+            if (!Array.isArray(symbols) || !symbols.length) {
+                throw new Error('Invalid symbols parameter');
+            }
+
+            logger.info(action + ' symbols: ' + symbols.toString());
+
+            // Update symbolsToTrack
+            for (var i = 0; i < symbols.length; i++) {
+                var symbol = symbols[i];
+
+                if (!/^[a-z]+$/i.test(symbol)) {
+                    //
+                    // Alpha Vantage API limitation: the symbol has to be all letters
+                    //
+                    logger.info('Ignore symbol that contains non alphabetic: ' + symbol);
+                    continue;
                 }
-            });
-        } catch (error) {
-            logger.error("Unable to download quote from Yahoo Finance.", JSON.stringify(error, null, 2));
-            resolve(null);
+
+                if (action == 'ADD') {
+                    if (symbolsToTrack.indexOf(symbol) == -1) {
+                        symbolsToTrack.push(symbol);
+                    }
+                } else if (action == 'DELETE') {
+                    var index = symbolsToTrack.indexOf(symbol);
+                    if (index > -1) {
+                        symbolsToTrack.splice(index, 1);
+                    }
+                }
+            }
+
+            // Download quotes immediately
+            if (action == 'ADD') {
+                downloadQuotes();
+            }
+
+        } catch (err) {
+            logger.error(topic + ': ' + err.message +  ' in: ' + message.toString());
         }
-    });
-}
- */
-
-exports.getPriceSnapshot = getPriceSnapshot;
-
-exports.init = function() {
-    logger.info('start price cache');
-    updatePriceCache();
-};
+    }
+});
 
 /*
-// Unit Test
-var SYMBOLS = [
-    'AAPL',
-    'GOOG',
-    'MSFT',
-    'IBM',
-    'AMZN'
-    //'ORCL',
-    //'INTC',
-    //'QCOM',
-    //'FB',
-    //'CSCO',
-    //'SAP',
-    //'TSM',
-    //'BIDU',
-    //'EMC',
-    //'HPQ',
-    //'TXN',
-    //'ERIC',
-    //'ASML',
-    //'CAJ',
-    //'YHOO'
-];
+ Yahoo Finance API is no longer available
+ function getPriceSnapshot(symbols) {
+ return when.promise(function (resolve, reject) {
+ try {
+ if (!Array.isArray(symbols)) {
+ symbols = [symbols]; // make it an array
+ }
 
-getPriceSnapshot(SYMBOLS)
-    .then(function (snapshot) {
-        logger.info(JSON.stringify(snapshot, null, 2));
-    })
-    .catch(function () {
-        logger.error('Error');
-    });
-*/
+ // Get price snapshot from Yahoo Finance
+ yahooFinance.snapshot({
+ symbols: symbols,
+ fields: ['s', 'p', 'l1', 'c1', 'p2']
+ }, function (err, results) {
+ if (err) {
+ reject(err);
+ } else {
+ var snapshot = {};
+ for (var i = 0; i < results.length; i++) {
+ var record = results[i];
+ if (record.hasOwnProperty('symbol') &&
+ record.hasOwnProperty('lastTradePriceOnly') &&
+ record.lastTradePriceOnly) {
+ snapshot[record.symbol] = {
+ price: record.lastTradePriceOnly,
+ change: record.change,
+ changeInPercent: record.changeInPercent
+ };
+ }
+ }
+ resolve(snapshot);
+ }
+ });
+ } catch (error) {
+ logger.error("Unable to download quote from Yahoo Finance.", JSON.stringify(error, null, 2));
+ resolve(null);
+ }
+ });
+ }
+ */

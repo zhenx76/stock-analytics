@@ -6,7 +6,6 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var api = require('./api');
 var User = require('./user-mgmt').User;
-var priceAgent = require('./price_agent');
 var config = require('./config');
 var useSSL = !config.local;
 
@@ -63,7 +62,6 @@ module.exports = {
                 .then(function() {
                     api.init(app);
                     initWebClient(app);
-                    priceAgent.init();
                     resolve(null);
                 })
                 .catch(function(error) {
@@ -77,9 +75,13 @@ module.exports = {
     },
     start: function() {
         logger.info('Starting server on port ' + port);
-        app.listen(port);
+        var server = app.listen(port);
+
         if (useSSL) {
-            https.createServer(credentials, app).listen(sslPort);
+            server = https.createServer(credentials, app);
+            server.listen(sslPort);
         }
+
+        api.startQuoteServer(server);
     }
 };

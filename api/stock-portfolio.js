@@ -2,7 +2,6 @@ var when = require('when');
 var config = require('../config');
 var decodeUser = require('./auth').decodeUser;
 var query = require('./dynamodb-query');
-var priceAgent = require('../price_agent');
 var logger = require('../utility').logger;
 
 exports.addWatchList = function(req, res) {
@@ -46,25 +45,9 @@ exports.queryWatchList = function(req, res) {
         } else if (!user.watch_list || user.watch_list.length == 0) {
             res.json([]); // We have to return an array to make Angular JS datatable happy
         } else {
-            when.all([
-                // promise 0: EPS data
-                query.runSymbolList(user.watch_list),
-
-                // promise 1: price snapshot
-                priceAgent.getPriceSnapshot(user.watch_list)
-
-            ]).then(function (values) {
+            query.runSymbolList(user.watch_list)
+            .then(function (results) {
                 logger.info('Queried EPS data for ' + user.watch_list);
-
-                var results = values[0];
-                var snapshot = values[1];
-
-                for (var i = 0; i < results.length; i++) {
-                    if (snapshot.hasOwnProperty(results[i].Symbol)) {
-                        results[i].Snapshot = snapshot[results[i].Symbol];
-                    }
-                }
-
                 res.json(results);
             }).catch(function(error) {
                 logger.error(error);
@@ -142,25 +125,9 @@ exports.getUserPositions = function(req, res) {
         if (err) {
             res.status(403).send({success: false, msg: err.message});
         } else {
-            var records;
             query.getUserPositions(user.username)
                 .then(function(data) {
-                    records = data;
-
-                    var symbols = [];
-                    for (var i = 0; i < data.length; i++) {
-                        symbols.push(data[i].symbol);
-                    }
-
-                    return priceAgent.getPriceSnapshot(symbols);
-                })
-                .then(function(snapshot) {
-                    for (var i = 0; i < records.length; i++) {
-                        if (snapshot.hasOwnProperty(records[i].symbol)) {
-                            records[i].snapshot = snapshot[records[i].symbol];
-                        }
-                    }
-                    res.json(records);
+                    res.json(data);
                 })
                 .catch(function(error) {
                     logger.error(JSON.stringify(error, null, 2));

@@ -7,7 +7,6 @@ var logger = require('../utility').logger;
 var stocks = require('../stock');
 var finanicals = require('../financial');
 var portfolio = require('../portfolio');
-var priceAgent = require('../price_agent');
 var config = require('../config');
 
 var local = config.local;
@@ -113,9 +112,6 @@ module.exports = {
                 // Promise 3: stock information
                 stocks.getStock(docClient, symbol),
 
-                // Promise 4: stock price snapshot
-                priceAgent.getPriceSnapshot(symbol)
-
             ]).then(function(values) {
                 var stockData = {
                     info: {Symbol: symbol, Name: values[2].Name},
@@ -124,8 +120,7 @@ module.exports = {
                     }),
                     annualRecords: values[1].sort(function(r1, r2) {
                         return r1.Year - r2.Year;
-                    }),
-                    snapshot: values[3][symbol]
+                    })
                 };
 
                 resolve(stockData);
@@ -150,9 +145,6 @@ module.exports = {
                 // Promise 4: user stock position information
                 portfolio.getUserStockPosition(docClient, username, symbol),
 
-                // Promise 5: stock price snapshot
-                priceAgent.getPriceSnapshot(symbol)
-
             ]).then(function(values) {
                 var stockData = {
                     info: {Symbol: symbol, Name: values[2].Name},
@@ -161,8 +153,7 @@ module.exports = {
                     }),
                     annualRecords: values[1].sort(function(r1, r2) {
                         return r1.Year - r2.Year;
-                    }),
-                    snapshot: values[4][symbol]
+                    })
                 };
 
                 var stockHoldingRecord = values[3];

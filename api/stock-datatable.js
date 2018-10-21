@@ -15,7 +15,6 @@
 // when it starts to make sense cost wise.
 //
 var query = require('./dynamodb-query');
-var priceAgent = require('../price_agent');
 var logger = require('../utility').logger;
 
 function getStockFilters(params) {
@@ -85,39 +84,13 @@ exports.query = function(req, res) {
                 });
         } else {
             var filters = getStockFilters(req.body);
-            var records = [];
-            var results = [];
 
             query.run(filters)
                 .then(function(data) {
                     if (!Array.isArray(data)) {
                         return when.reject();
                     }
-
-                    var symbols = [];
-                    for (var i = 0; i < data.length; i++) {
-                        if (data[i].hasOwnProperty('Symbol')) {
-                            symbols.push(data[i].Symbol);
-                            records.push(data[i]);
-                        }
-                    }
-
-                    return priceAgent.getPriceSnapshot(symbols);
-                })
-                .then(function (snapshot) {
-                    if (snapshot) {
-                        // filter out penny stocks
-                        for (var i = 0; i < records.length; i++) {
-                            var record = records[i];
-                            if (snapshot.hasOwnProperty(record.Symbol) && snapshot[record.Symbol].price >= 5.0) {
-                                results.push(record);
-                            }
-                        }
-                    } else {
-                        // No snapshot data, don't filter.
-                        results = records;
-                    }
-                    res.json(results);
+                    res.json(data);
                 })
                 .catch(function () {
                     res.status(404).send('Error when query stocks');

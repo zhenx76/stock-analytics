@@ -4,6 +4,7 @@ var passport = require('passport');
 var auth = require('./auth');
 var stockFinancial = require('./stock-datatable');
 var stockPortfolio = require('./stock-portfolio');
+var stockQuotes = require('./stock-quotes');
 
 var router = express.Router();
 
@@ -67,5 +68,9 @@ module.exports = {
             });
 
         app.use('/api/v1', router);
+    },
+
+    startQuoteServer: function(server) {
+        stockQuotes.startQuoteServer(server);
     }
 };

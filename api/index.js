@@ -72,5 +72,9 @@ module.exports = {
 
     startQuoteServer: function(server) {
         stockQuotes.startQuoteServer(server);
+    },
+
+    stopQuoteServer: function() {
+        stockQuotes.stopQuoteServer();
     }
 };

@@ -83,5 +83,9 @@ module.exports = {
         }
 
         api.startQuoteServer(server);
+    },
+    stop: function() {
+        api.stopQuoteServer();
+        logger.info('Server stopped');
     }
 };

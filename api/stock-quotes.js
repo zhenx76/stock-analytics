@@ -146,3 +146,19 @@ exports.startQuoteServer = function (server) {
         }
     });
 };
+
+exports.stopQuoteServer = function () {
+    try {
+        logger.info('StockQuoteServer: disconnecting all clients.');
+        for (var i = 0; i < clients.length; i++) {
+            clients[i].ws.close();
+        }
+
+        logger.info('StockQuoteServer: disconnecting from ' + config.mqttBrokerURL);
+        mqttClient.end();
+
+    } catch (err) {
+        logger.error('StockQuoteServer: error when stopping server ' + err.message);
+    }
+
+};

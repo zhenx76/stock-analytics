@@ -1,5 +1,6 @@
 var config = require('../config');
-var WebSocketServer = require('ws').Server;
+var WebSocket = require('ws');
+var WebSocketServer = WebSocket.Server;
 var uuid = require('node-uuid');
 var mqtt = require('mqtt');
 var logger = require('../utility').logger;
@@ -19,6 +20,14 @@ function registerClient(ws) {
     clients.push(client);
     logger.info('StockQuoteServer: client connected:' + client.id);
     return client;
+}
+
+function deregisterClient(client) {
+    var index = clients.indexOf(client);
+    if (index > -1) {
+        logger.info('StockQuoteServer: client disconnected:' + client.id);
+        clients.splice(index, 1);
+    }
 }
 
 function processClientMessage(client, message) {
@@ -95,6 +104,11 @@ function processQuoteMessage(message) {
             var client = clients[i];
             var quotes = {};
 
+            if (client.ws.readyState != WebSocket.OPEN) {
+                // Websocket connection may be closed by client
+                continue;
+            }
+
             for (var symbol in snapshot) {
                 if (snapshot.hasOwnProperty(symbol)) {
                     if (client.symbols.indexOf(symbol) > -1) {
@@ -134,6 +148,10 @@ exports.startQuoteServer = function (server) {
 
             ws.on('message', function (message) {
                 processClientMessage(client, message);
+            });
+
+            ws.on('close', function () {
+                deregisterClient(client);
             });
 
             ws.send(JSON.stringify({id: client.id}));

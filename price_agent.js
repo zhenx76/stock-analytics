@@ -58,7 +58,8 @@ function getPriceSnapshotSingle(symbol) {
  */
 
 var symbolsToTrack = [];
-var updateInterval = 5 * 60 * 1000;
+var updateInterval = 5 * 60 * 1000; // 5 minutes
+var delay = 15 * 1000; // 15 seconds
 
 function getPriceSnapshot(symbols) {
     return when.promise(function (resolve, reject) {
@@ -76,23 +77,24 @@ function getPriceSnapshot(symbols) {
                 var symbol = symbols[index];
                 getPriceSnapshotSingle(symbol).then(function(result) {
                     snapshot[symbol] = result;
+                    publishQuote(snapshot);
 
                     if (++index == symbols.length) {
                         resolve(snapshot);
                     } else {
                         retries = 0;
-                        setTimeout(getNextPriceSnapshot, 1000);
+                        setTimeout(getNextPriceSnapshot, delay);
                     }
                 }).catch(function(err) {
                     if (retries++ < 2) {
-                        setTimeout(getNextPriceSnapshot, retries * 1000);
+                        setTimeout(getNextPriceSnapshot, retries * delay);
                     } else {
                         logger.error("Skip fetching symbol " + symbol + ' due to error: ', JSON.stringify(err));
 
                         if (++index == symbols.length) {
                             resolve(snapshot);
                         } else {
-                            setTimeout(getNextPriceSnapshot, retries * 1000);
+                            setTimeout(getNextPriceSnapshot, retries * delay);
                         }
                     }
                 });
@@ -111,10 +113,16 @@ var TOPIC_QUOTE = config.mqttTopicQutoes;
 function downloadQuotes() {
     if (symbolsToTrack.length) {
         getPriceSnapshot(symbolsToTrack).then(function(snapshot) {
-            logger.info('Publish quotes on topic: ' + TOPIC_QUOTE + ' for symbols:' + symbolsToTrack.toString());
-            mqttClient.publish(TOPIC_QUOTE, JSON.stringify(snapshot));
+            //logger.info('Publish quotes on topic: ' + TOPIC_QUOTE + ' for symbols:' + symbolsToTrack.toString());
+            //mqttClient.publish(TOPIC_QUOTE, JSON.stringify(snapshot));
+            logger.info('Refresh quotes complete');
         });
     }
+}
+
+function publishQuote(snapshot) {
+    logger.info('Publish quotes on topic: ' + TOPIC_QUOTE + ' for symbols:' + Object.keys(snapshot).toString());
+    mqttClient.publish(TOPIC_QUOTE, JSON.stringify(snapshot));
 }
 
 mqttClient = mqtt.connect(config.mqttBrokerURL);

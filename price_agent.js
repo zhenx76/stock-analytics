@@ -111,11 +111,21 @@ var TOPIC_SYMBOL = config.mqttTopicSymbol;
 var TOPIC_QUOTE = config.mqttTopicQutoes;
 
 function downloadQuotes() {
-    if (symbolsToTrack.length) {
-        getPriceSnapshot(symbolsToTrack).then(function(snapshot) {
+    var symbols = [];
+
+    // Go through the list of symbol in reverse order, so the latest symbol will get updated first
+    for (var i = symbolsToTrack.length - 1; i >=0; i--) {
+        var record = symbolsToTrack[i];
+        if (record.count) {
+            symbols.push(record.symbol);
+        }
+    }
+
+    if (symbols.length) {
+        getPriceSnapshot(symbols).then(function(snapshot) {
             //logger.info('Publish quotes on topic: ' + TOPIC_QUOTE + ' for symbols:' + symbolsToTrack.toString());
             //mqttClient.publish(TOPIC_QUOTE, JSON.stringify(snapshot));
-            logger.info('Refresh quotes complete');
+            logger.info('Refreshed ' + Object.keys(snapshot).length + ' quotes');
         });
     }
 }
@@ -123,6 +133,35 @@ function downloadQuotes() {
 function publishQuote(snapshot) {
     logger.info('Publish quotes on topic: ' + TOPIC_QUOTE + ' for symbols:' + Object.keys(snapshot).toString());
     mqttClient.publish(TOPIC_QUOTE, JSON.stringify(snapshot));
+}
+
+function addSymbolToTrack(symbol) {
+    for (var i = 0; i < symbolsToTrack.length; i++) {
+        if (symbol == symbolsToTrack[i].symbol) {
+            symbolsToTrack[i].count++;
+            return;
+        }
+    }
+
+    symbolsToTrack.push({
+        symbol: symbol,
+        count: 1
+    });
+}
+
+function removeSymbolToTrack(symbol) {
+    for (var i = 0; i < symbolsToTrack.length; i++) {
+        if (symbol == symbolsToTrack[i].symbol) {
+            break;
+        }
+    }
+
+    if (i < symbolsToTrack.length) {
+        symbolsToTrack[i].count--;
+        if (symbolsToTrack[i].count == 0) {
+            symbolsToTrack.splice(i, 1);
+        }
+    }
 }
 
 mqttClient = mqtt.connect(config.mqttBrokerURL);
@@ -175,14 +214,9 @@ mqttClient.on('message', function(topic, message) {
                 }
 
                 if (action == 'ADD') {
-                    if (symbolsToTrack.indexOf(symbol) == -1) {
-                        symbolsToTrack.push(symbol);
-                    }
+                    addSymbolToTrack(symbol);
                 } else if (action == 'DELETE') {
-                    var index = symbolsToTrack.indexOf(symbol);
-                    if (index > -1) {
-                        symbolsToTrack.splice(index, 1);
-                    }
+                    removeSymbolToTrack(symbol);
                 }
             }
 

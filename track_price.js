@@ -5,11 +5,13 @@
 //
 
 var when = require('when');
-var priceAgent = require('./price_agent');
 var logger = require('./utility').logger;
 var config = require('./config');
 var portfolio = require('./portfolio');
 var User = require('./user-mgmt').User;
+var mqtt = require('mqtt');
+var events = require('events');
+var eventEmitter = new events.EventEmitter();
 
 var AWS = require('aws-sdk');
 
@@ -43,18 +45,39 @@ var delay = config.local ? 0 : 1000;
 
 var stockPrices = {};
 
+var mqttClient;
+var TOPIC_SYMBOL = config.mqttTopicSymbol;
+var TOPIC_QUOTE = config.mqttTopicQutoes;
+
 function getPriceSnapshot(symbol) {
     return when.promise(function(resolve, reject) {
         if (stockPrices.hasOwnProperty(symbol)) {
             resolve(stockPrices[symbol]);
         } else {
-            // Get price snapshot
-            priceAgent.getPriceSnapshot(symbol).then(function(snapshot) {
-                stockPrices[symbol] = snapshot[symbol].price;
-                resolve(snapshot[symbol].price);
-            }).catch(function(err) {
-               reject(err);
-            });
+            var quoteListener = function(snapshot) {
+                for (var s in snapshot) {
+                    if (snapshot.hasOwnProperty(s)) {
+                        stockPrices[s] = snapshot[s].price;
+                    }
+                }
+
+                if (stockPrices.hasOwnProperty(symbol)) {
+                    // remove itself from listener
+                    eventEmitter.removeListener(TOPIC_QUOTE, quoteListener);
+
+                    // fulfill promise
+                    resolve(snapshot[symbol].price);
+                }
+            };
+
+            // listen to quote events
+            eventEmitter.addListener(TOPIC_QUOTE, quoteListener);
+
+            // register quotes
+            mqttClient.publish(TOPIC_SYMBOL, JSON.stringify({
+                action: 'ADD',
+                symbols: [symbol]
+            }));
         }
     });
 }
@@ -118,11 +141,43 @@ function sendEmailToUser(username, msg) {
     });
 }
 
+function processQuoteMessage(message) {
+    try {
+        var snapshot = JSON.parse(message.toString());
+        eventEmitter.emit(TOPIC_QUOTE, snapshot);
+    } catch (err) {
+        logger.error('Price Tracker: invalid quote message ' + err.message);
+    }
+}
+
+function connectToQuoteServer() {
+    return when.promise(function(resolve, reject) {
+            mqttClient = mqtt.connect(config.mqttBrokerURL);
+
+            mqttClient.on('connect', function () {
+                logger.info('Price Tracker: connected to ' + config.mqttBrokerURL);
+
+                // Start listening to stock qutoes
+                logger.info('Price Tracker: subscribing to topic: ' + TOPIC_QUOTE);
+                mqttClient.subscribe(TOPIC_QUOTE);
+
+                resolve(null);
+            });
+
+            mqttClient.on('message', function (topic, message) {
+                if (topic == TOPIC_QUOTE) {
+                    processQuoteMessage(message);
+                }
+            });
+        });
+}
+
 when.resolve()
     .then(function() { return User.init(); })
     .then(function() { return portfolio.initPortfolioTable(db); })
+    .then(function() { return connectToQuoteServer(); })
     .then(function() {
-        portfolio.forEachUserStockPosition(docClient, delay, function(record, isFinal) {
+        return portfolio.forEachUserStockPosition(docClient, delay, function(record, isFinal) {
             return when.promise(function(resolve, reject) {
                 try {
                     logger.info('Processing ' + record.symbol + ' for ' + record.username);
@@ -154,4 +209,14 @@ when.resolve()
                 }
             });
         });
+    })
+    .finally(function() {
+        // un-register all quotes
+        mqttClient.publish(TOPIC_SYMBOL, JSON.stringify({
+            action: 'DELETE',
+            symbols: Object.keys(stockPrices)
+        }));
+
+        logger.info('Price Tracker: disconnecting from ' + config.mqttBrokerURL);
+        mqttClient.end();
     });

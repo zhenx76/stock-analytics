@@ -536,43 +536,47 @@ function scanNextUserStockPosition(docClient, startKey) {
 }
 
 exports.forEachUserStockPosition = function(docClient, delay, callback) {
-    var startKey = null;
-    var isFinal = false;
-    var counter = 0;
+    return when.promise(function(resolve, reject) {
+        var startKey = null;
+        var isFinal = false;
+        var counter = 0;
 
-    (function scanNextRecord() {
-        when.resolve(null)
-            .then(function() {
-                return scanNextUserStockPosition(docClient, startKey);
-            })
-            .then(function(result) {
-                isFinal = result.isFinal;
-                if (result.hasOwnProperty('nextStartKey')) {
-                    startKey = result.nextStartKey;
-                }
-                counter += result.records.length;
-                if (result.records.length > 1) {
-                    logger.error('Scan return more records than we asked! result.records.length == '
-                        + result.records.length);
-                }
+        (function scanNextRecord() {
+            when.resolve(null)
+                .then(function() {
+                    return scanNextUserStockPosition(docClient, startKey);
+                })
+                .then(function(result) {
+                    isFinal = result.isFinal;
+                    if (result.hasOwnProperty('nextStartKey')) {
+                        startKey = result.nextStartKey;
+                    }
+                    counter += result.records.length;
+                    if (result.records.length > 1) {
+                        logger.error('Scan return more records than we asked! result.records.length == '
+                            + result.records.length);
+                    }
 
-                if (result.records.length == 0) {
-                    return false; // return false to continue scan next item
-                } else {
-                    return callback(result.records[0], isFinal);
-                }
-            })
-            .then(function(stopScan) {
-                if (isFinal) {
-                    logger.info('Scanned ' + counter + ' records from index ' + portfolioIndexName);
-                } else if (stopScan) {
-                    logger.info('Stop scan index ' + portfolioIndexName + ' per user request');
-                } else {
-                    // For real deployment, throttle dynamodb request
-                    // to minimize required read/write units
-                    setTimeout(scanNextRecord, delay);
-                }
-            });
-    })();
+                    if (result.records.length == 0) {
+                        return false; // return false to continue scan next item
+                    } else {
+                        return callback(result.records[0], isFinal);
+                    }
+                })
+                .then(function(stopScan) {
+                    if (isFinal) {
+                        logger.info('Scanned ' + counter + ' records from index ' + portfolioIndexName);
+                        resolve(null);
+                    } else if (stopScan) {
+                        logger.info('Stop scan index ' + portfolioIndexName + ' per user request');
+                        resolve(null);
+                    } else {
+                        // For real deployment, throttle dynamodb request
+                        // to minimize required read/write units
+                        setTimeout(scanNextRecord, delay);
+                    }
+                });
+        })();
+    });
 };
 

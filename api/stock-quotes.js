@@ -141,7 +141,7 @@ exports.startQuoteServer = function (server) {
 
         // Start WebSocket server
         logger.info('StockQuoteServer: start websocket server');
-        var wss = new WebSocketServer({server: server});
+        var wss = new WebSocketServer({server: server, path: '/websocket'});
 
         wss.on('connection', function (ws) {
             var client = registerClient(ws);

@@ -7,7 +7,7 @@ var bodyParser = require('body-parser');
 var api = require('./api');
 var User = require('./user-mgmt').User;
 var config = require('./config');
-var useSSL = !config.local;
+var useSSL = true; //!config.local;
 
 var app = express();
 app.use(bodyParser.urlencoded({extended: true}));
@@ -19,11 +19,20 @@ var port = process.env.PORT || 8080;
 // SSL Certificate
 //
 if (useSSL) {
-    var credentials = {
-        key: fs.readFileSync(__dirname + '/cert/privkey.pem'),
-        cert: fs.readFileSync(__dirname + '/cert/fullchain.pem'),
-        ca: fs.readFileSync(__dirname + '/cert/chain.pem')
-    };
+    var credentials;
+    if (config.local) {
+        credentials = {
+            key: fs.readFileSync(__dirname + '/cert/privkey.pem'),
+            cert: fs.readFileSync(__dirname + '/cert/fullchain.pem')
+        };
+
+    } else {
+        credentials = {
+            key: fs.readFileSync(__dirname + '/cert/privkey.pem'),
+            cert: fs.readFileSync(__dirname + '/cert/fullchain.pem'),
+            ca: fs.readFileSync(__dirname + '/cert/chain.pem')
+        };
+    }
 
     var sslPort = process.env.SSL_PORT || 8443;
 }
@@ -78,6 +87,7 @@ module.exports = {
         var server = app.listen(port);
 
         if (useSSL) {
+            logger.info('Starting secure server on port ' + sslPort);
             server = https.createServer(credentials, app);
             server.listen(sslPort);
         }

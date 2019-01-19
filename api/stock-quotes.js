@@ -15,6 +15,7 @@ function registerClient(ws) {
     var client = {
         id: uuid.v4(),
         ws: ws,
+        alive: true,
         symbols: []
     };
     clients.push(client);
@@ -27,6 +28,14 @@ function deregisterClient(client) {
     if (index > -1) {
         logger.info('StockQuoteServer: client disconnected:' + client.id);
         clients.splice(index, 1);
+
+        // remove symbols from track list
+        if (client.symbols.length) {
+            mqttClient.publish(TOPIC_SYMBOL, JSON.stringify({
+                action: 'DELETE',
+                symbols: client.symbols
+            }));
+        }
     }
 }
 
@@ -154,8 +163,25 @@ exports.startQuoteServer = function (server) {
                 deregisterClient(client);
             });
 
+            ws.on('pong', function () {
+                client.alive = true;
+            });
+
             ws.send(JSON.stringify({id: client.id}));
         });
+
+        setInterval(function() {
+            for (var i = 0; i < clients.length; i++) {
+                var clt = clients[i];
+                if (clt.alive && clt.ws.readyState == WebSocket.OPEN) {
+                    clt.alive = false; // clear alive flag until we receive the pong message
+                    clt.ws.ping(function() {});
+                } else {
+                    deregisterClient(clt);
+                    clt.ws.terminate();
+                }
+            }
+        }, 30000);
     });
 
     mqttClient.on('message', function (topic, message) {
